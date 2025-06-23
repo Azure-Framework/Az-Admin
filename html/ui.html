@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Admin Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+  >
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    :root {
+      --bg: #0f172a00;         /* deep navy background */
+      --surface: #0a0a0a;      /* dark container */
+      --border: #334155;       /* border color */
+      --accent: #3b82f6;       /* vibrant blue accent */
+      --danger: #ef4444;       /* red for errors */
+      --warning: #f59e0b;
+      --success: #22c55e;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Inter', sans-serif;
+    }
+    
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+    }
+    
+    #admin-menu {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 999;
+    }
+    
+    .menu-container {
+      width: 95%;
+      max-width: 1400px;
+      height: 85vh;
+      background: var(--surface);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      border: 1px solid var(--border);
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      position: relative; /* for positioning notification */
+    }
+    
+    .hidden {
+      display: none !important;
+    }
+    
+    /* ----------------------------
+       Error Notification Banner
+       ---------------------------- */
+    #error-notification {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      background: var(--danger);
+      color: #fff;
+      padding: 0.75rem 1rem;
+      font-weight: 500;
+      text-align: center;
+      border-bottom: 1px solid darken(var(--danger), 10%);
+      transform: translateY(-100%);
+      transition: transform 0.3s ease-in-out;
+      z-index: 1000;
+    }
+    #error-notification.show {
+      transform: translateY(0);
+    }
+    
+    /* Header Styles */
+    .header {
+      padding: 1.25rem 1.75rem;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      position: relative; /* leave space for notification */
+    }
+    
+    .header h2 {
+      font-weight: 700;
+      font-size: 1.5rem;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    
+    .header h2 i {
+      color: var(--accent);
+    }
+    
+    .header button {
+      background: var(--bg);
+      border: none;
+      color: var(--text-muted);
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background .2s;
+      color: var(--text);
+      display: grid;
+      place-items: center;
+      font-size: 1.25rem;
+      box-shadow: var(--card-shadow);
+    }
+    
+    .header button:hover {
+      background: var(--accent);
+      color: white;
+    }
+    
+    /* Main Content Area */
+    .content {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+      padding: 1.5rem;
+      overflow-y: auto;
+    }
+    
+    @media (min-width: 1024px) {
+      .content {
+        grid-template-columns: 1.2fr 1fr 1fr;
+      }
+    }
+    
+    /* Panel Styles */
+    .panel {
+      background: var(--bg);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      min-height: 300px;
+      box-shadow: var(--card-shadow);
+      overflow: hidden;
+    }
+    
+    .panel h3 {
+      padding: 1rem 1.5rem;
+      background: var(--surface);
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    /* Players List */
+    #players {
+      flex: 1;
+      list-style: none;
+      padding: 0.5rem 0;
+      overflow-y: auto;
+    }
+    
+    #players li {
+      padding: 0.9rem 1.5rem;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: background .2s;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      position: relative;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    #players li:last-child {
+      border-bottom: none;
+    }
+    
+    #players li:hover {
+      background: rgba(59, 130, 246, 0.08);
+    }
+    
+    #players li.selected {
+      background: rgba(59, 130, 246, 0.15);
+      color: var(--accent);
+      font-weight: 500;
+      border-left: 3px solid var(--accent);
+    }
+    
+    #players li.selected::after {
+      content: '✓';
+      position: absolute;
+      right: 1.5rem;
+      color: var(--accent);
+      font-weight: bold;
+    }
+    
+    /* Action Buttons */
+    .buttons {
+      padding: 1.25rem 1.5rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 0.85rem;
+    }
+    
+    .buttons button {
+      padding: 0.75rem;
+      background: var(--surface);
+      border: none;
+      border-radius: 8px;
+      color: var(--text);
+      cursor: pointer;
+      transition: all .2s;
+      font-weight: 500;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .buttons button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+    
+    .buttons button[data-action="kick"] {
+      background: var(--danger);
+      color: #fff;
+    }
+    
+    .buttons button[data-action="ban"] {
+      background: var(--warning);
+      color: #fff;
+    }
+    
+    .buttons button[data-action="freeze"] {
+      background: var(--success);
+      color: #fff;
+    }
+    
+    .buttons button[data-action="teleportTo"] {
+      background: #8b5cf6;
+      color: #fff;
+    }
+    
+    .buttons button[data-action="bring"] {
+      background: #ec4899;
+      color: #fff;
+    }
+    
+    hr {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 0.5rem 1.5rem;
+    }
+    
+    /* Financial Management */
+    .money-ops {
+      padding: 1.25rem 1.5rem;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
+    
+    .money-ops select, 
+    .money-ops input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.75rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      width: 100%;
+      transition: border-color 0.2s;
+    }
+    
+    .money-ops select:focus, 
+    .money-ops input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    
+    #execMoneyOp {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 0.85rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background .2s;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 0.5rem;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+    
+    #execMoneyOp:hover {
+      background: #2563eb;
+    }
+    
+    /* Departments List */
+    .dept-list {
+      padding: 1.25rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      flex: 1;
+      overflow-y: auto;
+    }
+    
+    .dept-list ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    
+    .dept-list li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.85rem;
+      background: var(--surface);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    
+    .dept-list .dept-info {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+    
+    .dept-list .dept-name {
+      font-weight: 600;
+      color: var(--text);
+    }
+    
+    .dept-list .dept-details {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      display: flex;
+      gap: 1rem;
+    }
+    
+    .dept-list input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.5rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      max-width: 100px;
+    }
+    
+    .dept-list button {
+      background: var(--accent);
+      border: none;
+      border-radius: 6px;
+      color: white;
+      padding: 0.5rem 0.75rem;
+      cursor: pointer;
+      transition: background .2s;
+      font-weight: 500;
+      font-size: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .dept-list button:hover {
+      background: #2563eb;
+    }
+    
+    .dept-list .action-buttons {
+      display: flex;
+      gap: 0.5rem;
+    }
+    
+    .dept-list .edit-btn {
+      background: var(--surface);
+      color: var(--text);
+    }
+    
+    .dept-list .edit-btn:hover {
+      background: var(--border);
+    }
+    
+    #newDeptForm {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr auto;
+      gap: 0.75rem;
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+    }
+    
+    #newDeptForm input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.65rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+    }
+    
+    #createDeptBtn {
+      background: var(--success);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+    
+    #createDeptBtn:hover {
+      background: #16a34a;
+    }
+    
+    /* Scrollbar Styling */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+      background: var(--accent);
+      border-radius: 4px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+      background: #2563eb;
+    }
+    
+    /* Status Indicator */
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      padding: 0 1.5rem 1rem;
+    }
+    
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+      0% { opacity: 0.7; }
+      50% { opacity: 1; }
+      100% { opacity: 0.7; }
+    }
+  </style>
+</head>
+<body>
+  <div id="admin-menu" class="hidden">
+    <div class="menu-container">
+      <!-- In-UI Error Notification Banner -->
+      <div id="error-notification"></div>
+      
+      <div class="header">
+        <h2><i class="fas fa-shield-alt"></i> Admin Management</h2>
+        <button id="closeBtn" title="Close"><i class="fas fa-times"></i></button>
+      </div>
+      
+      <div class="status-indicator">
+        <div class="status-dot"></div>
+        <span>Connected to server</span>
+      </div>
+      
+      <div class="content">
+        <!-- Players Panel -->
+        <div class="panel">
+          <h3><i class="fas fa-users"></i> Active Players</h3>
+          <ul id="players">
+            <!-- Player list will be populated by JS -->
+          </ul>
+        </div>
+        
+        <!-- Actions Panel -->
+        <div class="panel">
+          <h3><i class="fas fa-cog"></i> Player Actions</h3>
+          <div class="buttons">
+            <button data-action="kick"><i class="fas fa-door-open"></i> Kick</button>
+            <button data-action="ban"><i class="fas fa-ban"></i> Ban</button>
+            <button data-action="teleportTo"><i class="fas fa-location-arrow"></i> Teleport To</button>
+            <button data-action="bring"><i class="fas fa-hand-paper"></i> Bring</button>
+            <button data-action="freeze"><i class="fas fa-snowflake"></i> Freeze</button>
+          </div>
+          
+          <hr>
+          
+          <h3 style="padding: 0 1.5rem; margin: 1rem 0 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+            <i class="fas fa-coins"></i> Financial Management
+          </h3>
+          <div class="money-ops">
+            <select id="moneyOp">
+              <option value="add">Add Funds</option>
+              <option value="deduct">Deduct Funds</option>
+              <option value="modify">Set Funds</option>
+              <option value="deposit">Bank Deposit</option>
+              <option value="withdraw">Bank Withdraw</option>
+              <option value="transfer">Transfer Funds</option>
+              <option value="daily">Daily Reward</option>
+            </select>
+            <input type="number" id="moneyAmt" placeholder="Amount">
+            <input type="number" id="moneyExtra" placeholder="Target ID" class="hidden">
+            <button id="execMoneyOp"><i class="fas fa-check-circle"></i> Confirm Transaction</button>
+          </div>
+        </div>
+        
+        <!-- Departments Panel -->
+        <div class="panel">
+          <h3><i class="fas fa-building"></i> Departments</h3>
+          <div class="dept-list">
+            <ul id="departments">
+              <!-- Departments will be populated by JS -->
+            </ul>
+            <div id="newDeptForm">
+              <input type="text" id="deptNameInput" placeholder="Department Name">
+              <input type="number" id="deptPayInput" placeholder="Paycheck">
+              <input type="text" id="deptDiscordInput" placeholder="Discord ID">
+              <button id="createDeptBtn"><i class="fas fa-plus"></i> Create</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Utility to show an in-UI error notification
+    (() => {
+      const notification = document.getElementById('error-notification');
+      let hideTimeout = null;
+
+      // Show the banner with a given message, auto-hide after 4 seconds
+      window.showError = function(message) {
+        // Clear previous timeout if still pending
+        if (hideTimeout) {
+          clearTimeout(hideTimeout);
+          hideTimeout = null;
+        }
+
+        notification.textContent = message;
+        notification.classList.add('show');
+
+        // Auto-hide after 4 seconds
+        hideTimeout = setTimeout(() => {
+          notification.classList.remove('show');
+          hideTimeout = null;
+        }, 4000);
+      };
+
+      // Optionally, a function to clear immediately
+      window.clearError = function() {
+        if (hideTimeout) {
+          clearTimeout(hideTimeout);
+          hideTimeout = null;
+        }
+        notification.classList.remove('show');
+      };
+    })();
+
+    document.getElementById('moneyOp').addEventListener('change', function() {
+      document.getElementById('moneyExtra').classList.toggle('hidden', this.value !== 'transfer');
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const menu = document.getElementById('admin-menu');
+      const closeBtn = document.getElementById('closeBtn');
+      let selectedId = null;
+
+      function closeMenu() {
+        fetch(`https://${GetParentResourceName()}/closeMenu`, {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'}
+        }).then(() => {
+          menu.classList.add('hidden');
+          // Clear any lingering error
+          clearError();
+        });
+      }
+      closeBtn.addEventListener('click', closeMenu);
+      document.addEventListener('keydown', e => { 
+        if (e.key === 'Escape') {
+          closeMenu();
+        }
+      });
+
+      window.addEventListener('message', ev => {
+        if (ev.data.action === 'openMenu') {
+          menu.classList.remove('hidden');
+          fetchPlayers();
+          fetchDepartments();
+        } else if (ev.data.action === 'loadDepartments') {
+          renderDepartments(ev.data.departments);
+        }
+      });
+
+      function fetchPlayers() {
+        fetch(`https://${GetParentResourceName()}/getPlayers`, {
+          method:'POST',
+          headers:{'Content-Type':'application/json'}
+        })
+        .then(r => r.json())
+        .then(d => {
+          const ul = document.getElementById('players');
+          ul.innerHTML = '';
+          d.players.forEach(p => {
+            const li = document.createElement('li');
+            li.textContent = `${p.name} [${p.id}]`;
+            li.onclick = () => {
+              document.querySelectorAll('#players li').forEach(x => x.classList.remove('selected'));
+              li.classList.add('selected');
+              selectedId = p.id;
+            };
+            ul.appendChild(li);
+          });
+          // If no players, reset selectedId
+          if (!d.players.length) {
+            selectedId = null;
+          }
+        })
+        .catch(err => {
+          console.error('Error fetching players:', err);
+          showError('Failed to load players from server.');
+        });
+      }
+
+      function fetchDepartments() {
+        fetch(`https://${GetParentResourceName()}/getDepartments`, {
+          method:'POST',
+          headers:{'Content-Type':'application/json'}
+        })
+        .catch(err => {
+          console.error('Error fetching departments:', err);
+          showError('Failed to load departments from server.');
+        });
+      }
+
+      function renderDepartments(depts) {
+        const ul = document.getElementById('departments');
+        ul.innerHTML = '';
+        depts.forEach(d => {
+          const li = document.createElement('li');
+          
+          const infoDiv = document.createElement('div');
+          infoDiv.className = 'dept-info';
+          
+          const nameSpan = document.createElement('span');
+          nameSpan.className = 'dept-name';
+          nameSpan.textContent = d.department;
+          
+          const detailsDiv = document.createElement('div');
+          detailsDiv.className = 'dept-details';
+          detailsDiv.innerHTML = `
+            <span>Pay: $${d.paycheck}</span>
+            <span>Discord: ${d.discordid}</span>
+          `;
+          
+          infoDiv.appendChild(nameSpan);
+          infoDiv.appendChild(detailsDiv);
+          
+          const editForm = document.createElement('div');
+          editForm.style.display = 'none'; 
+          editForm.style.alignItems = 'center';
+          editForm.style.gap = '0.5rem';
+          
+          const payInput = document.createElement('input');
+          payInput.type = 'number'; 
+          payInput.value = d.paycheck;
+          payInput.placeholder = "Paycheck";
+          
+          const discordInput = document.createElement('input');
+          discordInput.type = 'text'; 
+          discordInput.value = d.discordid;
+          discordInput.placeholder = "Discord ID";
+          
+          const saveBtn = document.createElement('button');
+          saveBtn.innerHTML = '<i class="fas fa-save"></i> Save';
+          
+          const cancelBtn = document.createElement('button');
+          cancelBtn.innerHTML = '<i class="fas fa-times"></i> Cancel';
+          cancelBtn.className = 'edit-btn';
+          
+          editForm.append(payInput, discordInput, saveBtn, cancelBtn);
+
+          const btns = document.createElement('div');
+          btns.className = 'action-buttons';
+          
+          const editBtn = document.createElement('button');
+          editBtn.className = 'edit-btn';
+          editBtn.innerHTML = '<i class="fas fa-edit"></i> Edit';
+          
+          const deleteBtn = document.createElement('button');
+          deleteBtn.innerHTML = '<i class="fas fa-trash"></i> Delete';
+          deleteBtn.style.background = 'var(--danger)';
+          
+          btns.append(editBtn, deleteBtn);
+
+          // Edit Button
+          editBtn.onclick = () => {
+            infoDiv.style.display = 'none'; 
+            btns.style.display = 'none'; 
+            editForm.style.display = 'flex';
+          };
+          
+          // Delete Button
+          deleteBtn.onclick = () => {
+            // Replace confirm(...) with an in-UI prompt
+            const departmentName = d.department;
+            // Ask the user for confirmation by showing a prompt inside the menu
+            // We'll simply use JavaScript's confirm for now but could be upgraded to an in-UI modal.
+            const answer = confirm(`Remove "${departmentName}"?`);
+            if (!answer) return;
+            fetch(`https://${GetParentResourceName()}/removeDepartment`, {
+              method:'POST',
+              headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({ department: departmentName })
+            })
+            .then(() => fetchDepartments())
+            .catch(err => {
+              console.error('Error removing department:', err);
+              showError(`Failed to remove department "${departmentName}".`);
+            });
+          };
+
+          saveBtn.onclick = () => {
+            const newPay = payInput.value;
+            const newDiscord = discordInput.value;
+            if (newPay === '') {
+              showError('Please enter a valid paycheck amount.');
+              return;
+            }
+            fetch(`https://${GetParentResourceName()}/modifyDepartment`, {
+              method:'POST',
+              headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({
+                department: d.department,
+                paycheck: newPay,
+                discordid: newDiscord
+              })
+            })
+            .then(() => {
+              editForm.style.display = 'none';
+              infoDiv.style.display = '';
+              btns.style.display = 'flex';
+              fetchDepartments();
+            })
+            .catch(err => {
+              console.error('Error modifying department:', err);
+              showError(`Failed to update department "${d.department}".`);
+            });
+          };
+          
+          cancelBtn.onclick = () => {
+            editForm.style.display = 'none';
+            infoDiv.style.display = '';
+            btns.style.display = 'flex';
+          };
+
+          li.append(infoDiv, editForm, btns);
+          ul.appendChild(li);
+        });
+      }
+
+      document.getElementById('createDeptBtn').onclick = () => {
+        const name = document.getElementById('deptNameInput').value.trim();
+        const pay = document.getElementById('deptPayInput').value;
+        const discord = document.getElementById('deptDiscordInput').value.trim() || 'global';
+        if (!name || pay === '') {
+          showError('Enter both department name and paycheck.');
+          return;
+        }
+        fetch(`https://${GetParentResourceName()}/createDepartment`, {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({
+            department: name,
+            paycheck: pay,
+            discordid: discord
+          })
+        })
+        .then(() => {
+          document.getElementById('deptNameInput').value = '';
+          document.getElementById('deptPayInput').value = '';
+          document.getElementById('deptDiscordInput').value = '';
+          fetchDepartments();
+        })
+        .catch(err => {
+          console.error('Error creating department:', err);
+          showError(`Failed to create department "${name}".`);
+        });
+      };
+
+      document.querySelectorAll('.buttons button').forEach(btn => {
+        btn.onclick = () => {
+          if (!selectedId) {
+            showError('Select a player first.');
+            return;
+          }
+          fetch(`https://${GetParentResourceName()}/${btn.dataset.action}`, {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ target: selectedId })
+          })
+          .catch(err => {
+            console.error(`Error performing action ${btn.dataset.action}:`, err);
+            showError(`Failed to ${btn.dataset.action} player ${selectedId}.`);
+          });
+        };
+      });
+
+      document.getElementById('execMoneyOp').onclick = () => {
+        if (!selectedId) {
+          showError('Select a player first.');
+          return;
+        }
+        const op = document.getElementById('moneyOp').value;
+        const amt = document.getElementById('moneyAmt').value;
+        // If amount is empty or not a positive number
+        if (amt === '' || isNaN(amt) || Number(amt) < 0) {
+          showError('Enter a valid amount.');
+          return;
+        }
+        const extra = document.getElementById('moneyExtra').value;
+        fetch(`https://${GetParentResourceName()}/moneyOp`, {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ op, target: selectedId, amount: amt, extra })
+        })
+        .catch(err => {
+          console.error('Error executing money operation:', err);
+          showError('Failed to execute money operation.');
+        });
+      };
+    });
+  </script>
+</body>
+</html>
