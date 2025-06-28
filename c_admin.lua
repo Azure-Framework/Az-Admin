@@ -1,22 +1,30 @@
 local menuOpen = false
+local debugMode = true
+local function dbg(fmt, ...) if debugMode then print(('[AdminMenu][Client] ' .. fmt):format(...)) end end
 
+
+-- when user types /adminmenu
 RegisterCommand('adminmenu', function()
-    -- TriggerServerEvent('adminmenu:verifyAdmin')
-        TriggerEvent('adminmenu:allowOpen')
+    local src = PlayerId()
+    dbg("Command '/adminmenu' invoked by client playerId=%d", src)
+    -- ask the server “am I an admin?”
+    TriggerServerEvent('adminmenu:verifyAdmin')
 end, false)
 
+-- only open the menu once the server explicitly says “yes”
 RegisterNetEvent('adminmenu:allowOpen')
 AddEventHandler('adminmenu:allowOpen', function()
+    dbg("Received 'allowOpen' from server")
     menuOpen = not menuOpen
+    dbg("Toggling menuOpen → %s", tostring(menuOpen))
     SetNuiFocus(menuOpen, menuOpen)
     SendNUIMessage({ action = 'openMenu' })
+
     if menuOpen then
-        -- load existing departments as soon as the menu opens
+        dbg("Menu opened; requesting departments from server")
         TriggerServerEvent('adminmenu:serverGetDepartments')
     end
-    SendNUIMessage({ action = 'openMenu' })
 end)
-
 RegisterNUICallback('closeMenu', function(_, cb)
     menuOpen = false
     SetNuiFocus(false, false)

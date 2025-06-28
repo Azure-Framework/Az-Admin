@@ -7,15 +7,32 @@ local frozen = {}
 RegisterNetEvent('adminmenu:verifyAdmin')
 AddEventHandler('adminmenu:verifyAdmin', function()
     local src = source
+    print(("[AdminMenu] Event fired, source = %s"):format(tostring(src)))
+
+    -- Kick off admin check
+    print(("[AdminMenu] Calling Az-Framework:isAdmin for %s"):format(src))
     exports['Az-Framework']:isAdmin(src, function(isAdmin)
+        -- Callback entry
+        print(("[AdminMenu] isAdmin callback invoked for %s, returned = %s"):format(src, tostring(isAdmin)))
+
+        -- Log the command attempt
         exports['Az-Framework']:logAdminCommand('adminmenu', src, {}, isAdmin)
+        print(("[AdminMenu] logAdminCommand done for %s"):format(src))
+
         if isAdmin then
+            print(string.format("[AdminMenu] %d is an admin → TriggerClientEvent('adminmenu:allowOpen')", src))
             TriggerClientEvent('adminmenu:allowOpen', src)
-            dbg("%d is an admin, opening menu", src)
         else
-            TriggerClientEvent('chat:addMessage', src, { args = { '[AdminMenu]', 'You are not authorized to use this.' } })
-            dbg("%d tried to open menu but is not admin", src)
+            print(string.format("[AdminMenu] %d is NOT an admin → sending chat message", src))
+            TriggerClientEvent('chat:addMessage', src, {
+                args = { '[AdminMenu]', 'You are not authorized to use this.' }
+            })
         end
+    end)
+
+    -- Failsafe: if your callback never fires, you’ll see this after 5 seconds
+    Citizen.SetTimeout(5000, function()
+        print(("[AdminMenu] WARNING: No response from isAdmin callback after 5s for %s"):format(src))
     end)
 end)
 
