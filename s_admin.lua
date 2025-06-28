@@ -68,23 +68,93 @@ end)
 -- Money Ops
 RegisterNetEvent('adminmenu:serverMoneyOp')
 AddEventHandler('adminmenu:serverMoneyOp', function(data)
-    local op = data.op
+    local src = source
+    local op  = data.op
     local tgt = tonumber(data.target)
     local amt = tonumber(data.amount) or 0
-    local extra = tonumber(data.extra) or 0
+    local extra = tonumber(data.extra) or 0  -- only used for transfer
 
-    if op == "add" then exports['Az-Framework']:addMoney(tgt, amt)
-    elseif op == "deduct" then exports['Az-Framework']:deductMoney(tgt, amt)
-    elseif op == "modify" then exports['Az-Framework']:modifyMoney(tgt, amt)
-    elseif op == "deposit" then exports['Az-Framework']:depositMoney(tgt, amt)
-    elseif op == "withdraw" then exports['Az-Framework']:withdrawMoney(tgt, amt)
-    elseif op == "transfer" then exports['Az-Framework']:transferMoney(tgt, extra, amt)
-    elseif op == "daily" then exports['Az-Framework']:claimDailyReward(tgt, amt)
-    else
-        dbg("Invalid moneyOp %s on %d", op, tgt)
-    end
+    -- 1) Verify this player is an admin
+    exports['Az-Framework']:isAdmin(src, function(isAdmin)
+        if not isAdmin then
+            TriggerClientEvent('chat:addMessage', src, {
+                args = { '[AdminMenu]', 'You are not authorized to use that.' }
+            })
+            return
+        end
 
-    dbg("Money op '%s' on %d: %d", op, tgt, amt)
+        -- 2) Basic validation
+        if not tgt or tgt <= 0 then
+            TriggerClientEvent('chat:addMessage', src, {
+                args = { '[AdminMenu]', 'Invalid target player ID.' }
+            })
+            return
+        end
+
+        if amt <= 0 and op ~= 'modify' then
+            TriggerClientEvent('chat:addMessage', src, {
+                args = { '[AdminMenu]', 'Amount must be greater than zero.' }
+            })
+            return
+        end
+
+        -- 3) Dispatch the correct Az‑Framework call
+        if op == "add" then
+            exports['Az-Framework']:addMoney(tgt, amt)
+
+        elseif op == "deduct" then
+            exports['Az-Framework']:deductMoney(tgt, amt)
+
+        elseif op == "modify" then
+            -- modify to exact balance
+            exports['Az-Framework']:modifyMoney(tgt, amt)
+
+        elseif op == "deposit" then
+            exports['Az-Framework']:depositMoney(tgt, amt)
+
+        elseif op == "withdraw" then
+            exports['Az-Framework']:withdrawMoney(tgt, amt)
+
+        elseif op == "transfer" then
+            -- extra = recipient, amt = amount
+            if extra <= 0 then
+                TriggerClientEvent('chat:addMessage', src, {
+                    args = { '[AdminMenu]', 'You must specify a valid recipient ID for transfer.' }
+                })
+                return
+            end
+            exports['Az-Framework']:transferMoney(tgt, extra, amt)
+
+        elseif op == "daily" then
+            exports['Az-Framework']:claimDailyReward(tgt, amt)
+
+        else
+            TriggerClientEvent('chat:addMessage', src, {
+                args = { '[AdminMenu]', 'Unknown money operation: ' .. tostring(op) }
+            })
+            return
+        end
+
+        -- 4) Notify admin & (if appropriate) target
+        TriggerClientEvent('chat:addMessage', src, {
+            args = {
+                '[AdminMenu]',
+                ('You ran %s $%d for player ID %d.'):format(op, amt, (op == 'transfer' and extra or tgt))
+            }
+        })
+        if op ~= 'modify' then
+            -- let the target know something happened to their money
+            TriggerClientEvent('chat:addMessage', tgt, {
+                args = {
+                    '[Bank]',
+                    ('Your balance was %s by an admin: %s $%d'):format(
+                        (op == 'deduct' or op == 'withdraw') and 'decreased' or 'increased',
+                        op, amt
+                    )
+                }
+            })
+        end
+    end)
 end)
 
 RegisterNetEvent('adminmenu:serverCreateDepartment')
@@ -192,5 +262,68 @@ RegisterCommand('goto', function(source, args, rawCommand)
         })
 
         dbg("Admin %d used /goto to teleport to (%.2f, %.2f, %.2f, heading=%.2f)", source, x, y, z, h)
+    end)
+end, false)
+
+
+
+
+
+
+
+
+
+
+
+
+-- Test: Get active character ID
+RegisterCommand("testchar", function(source, args, raw)
+    if source == 0 then
+        print("^1[testchar]^7 Cannot run from console.")
+        return
+    end
+
+    local charID = exports['Az-Framework']:GetPlayerCharacter(source)
+    if not charID then
+        TriggerClientEvent("chat:addMessage", source, { args = {"^1SYSTEM","No character selected."} })
+    else
+        TriggerClientEvent("chat:addMessage", source, { args = {"^2SYSTEM","Active charID → "..charID} })
+    end
+end, false)
+
+-- Test: Get active character name
+RegisterCommand("testcharname", function(source, args, raw)
+    if source == 0 then
+        print("^1[testcharname]^7 Cannot run from console.")
+        return
+    end
+
+    exports['Az-Framework']:GetPlayerCharacterName(source, function(err, fullName)
+        if err then
+            TriggerClientEvent("chat:addMessage", source, { args = {"^1SYSTEM","Error fetching name: "..err} })
+        else
+            TriggerClientEvent("chat:addMessage", source, { args = {"^2SYSTEM","Character name → "..fullName} })
+        end
+    end)
+end, false)
+
+-- Test: Get cash & bank balances
+RegisterCommand("testmoney", function(source, args, raw)
+    if source == 0 then
+        print("^1[testmoney]^7 Cannot run from console.")
+        return
+    end
+
+    exports['Az-Framework']:GetPlayerMoney(source, function(err, balances)
+        if err then
+            TriggerClientEvent("chat:addMessage", source, { args = {"^1SYSTEM","Error fetching money: "..err} })
+        else
+            TriggerClientEvent("chat:addMessage", source, {
+                args = {
+                    "^2SYSTEM",
+                    ("Cash: $%d  |  Bank: $%d"):format(balances.cash, balances.bank)
+                }
+            })
+        end
     end)
 end, false)

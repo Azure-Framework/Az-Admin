@@ -1,7 +1,8 @@
 local menuOpen = false
 
 RegisterCommand('adminmenu', function()
-    TriggerServerEvent('adminmenu:verifyAdmin')
+    -- TriggerServerEvent('adminmenu:verifyAdmin')
+        TriggerEvent('adminmenu:allowOpen')
 end, false)
 
 RegisterNetEvent('adminmenu:allowOpen')
@@ -95,3 +96,35 @@ AddEventHandler('adminmenu:clientReceiveDepartments', function(data)
         departments = data.departments
     })
 end)
+
+-- Round a number to n decimal places
+local function round(num, decimals)
+    local mult = 10^(decimals or 3)
+    return math.floor(num * mult + 0.5) / mult
+end
+
+-- /pos3: copy vector3(x, y, z)
+RegisterCommand("pos3", function()
+    local ped = PlayerPedId()
+    local x, y, z = table.unpack(GetEntityCoords(ped, true))
+    x, y, z = round(x, 3), round(y, 3), round(z, 3)
+    -- note: use \t\n for new lines if you ever need them
+    local vec3 = string.format("vector3(%.3f, %.3f, %.3f)", x, y, z)
+    lib.setClipboard(vec3)
+    TriggerEvent("chat:addMessage", {
+        args = { "^2[POS3]^7 Copied → " .. vec3 }
+    })
+end, false)
+
+-- /pos4: copy vector4(x, y, z, heading)
+RegisterCommand("pos4", function()
+    local ped = PlayerPedId()
+    local x, y, z = table.unpack(GetEntityCoords(ped, true))
+    local h     = GetEntityHeading(ped)
+    x, y, z, h  = round(x, 3), round(y, 3), round(z, 3), round(h, 3)
+    local vec4 = string.format("vector4(%.3f, %.3f, %.3f, %.3f)", x, y, z, h)
+    lib.setClipboard(vec4)
+    TriggerEvent("chat:addMessage", {
+        args = { "^2[POS4]^7 Copied → " .. vec4 }
+    })
+end, false)
