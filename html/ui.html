@@ -2,516 +2,35 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Admin Dashboard</title>
+  <title>Enhanced Admin Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link
-    rel="stylesheet"
-    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
-  >
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-    
-    :root {
-      --bg: #0f172a00;         /* deep navy background */
-      --surface: #0a0a0a;      /* dark container */
-      --border: #334155;       /* border color */
-      --accent: #3b82f6;       /* vibrant blue accent */
-      --danger: #ef4444;       /* red for errors */
-      --warning: #f59e0b;
-      --success: #22c55e;
-      --text: #f1f5f9;
-      --text-muted: #94a3b8;
-      --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
-    
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      font-family: 'Inter', sans-serif;
-    }
-    
-    html, body {
-      height: 100%;
-      background: var(--bg);
-      color: var(--text);
-      overflow: hidden;
-    }
-    
-    #admin-menu {
-      position: fixed;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: rgba(0, 0, 0, 0.7);
-      z-index: 999;
-    }
-    
-    .menu-container {
-      width: 95%;
-      max-width: 1400px;
-      height: 85vh;
-      background: var(--surface);
-      border-radius: 12px;
-      display: flex;
-      flex-direction: column;
-      border: 1px solid var(--border);
-      overflow: hidden;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-      position: relative; /* for positioning notification */
-    }
-    
-    .hidden {
-      display: none !important;
-    }
-    
-    /* ----------------------------
-       Error Notification Banner
-       ---------------------------- */
-    #error-notification {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      background: var(--danger);
-      color: #fff;
-      padding: 0.75rem 1rem;
-      font-weight: 500;
-      text-align: center;
-      border-bottom: 1px solid darken(var(--danger), 10%);
-      transform: translateY(-100%);
-      transition: transform 0.3s ease-in-out;
-      z-index: 1000;
-    }
-    #error-notification.show {
-      transform: translateY(0);
-    }
-    
-    /* Header Styles */
-    .header {
-      padding: 1.25rem 1.75rem;
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-      position: relative; /* leave space for notification */
-    }
-    
-    .header h2 {
-      font-weight: 700;
-      font-size: 1.5rem;
-      color: var(--text);
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-    }
-    
-    .header h2 i {
-      color: var(--accent);
-    }
-    
-    .header button {
-      background: var(--bg);
-      border: none;
-      color: var(--text-muted);
-      width: 40px;
-      height: 40px;
-      border-radius: 10px;
-      cursor: pointer;
-      transition: background .2s;
-      color: var(--text);
-      display: grid;
-      place-items: center;
-      font-size: 1.25rem;
-      box-shadow: var(--card-shadow);
-    }
-    
-    .header button:hover {
-      background: var(--accent);
-      color: white;
-    }
-    
-    /* Main Content Area */
-    .content {
-      flex: 1;
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 1.5rem;
-      padding: 1.5rem;
-      overflow-y: auto;
-    }
-    
-    @media (min-width: 1024px) {
-      .content {
-        grid-template-columns: 1.2fr 1fr 1fr;
-      }
-    }
-    
-    /* Panel Styles */
-    .panel {
-      background: var(--bg);
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      min-height: 300px;
-      box-shadow: var(--card-shadow);
-      overflow: hidden;
-    }
-    
-    .panel h3 {
-      padding: 1rem 1.5rem;
-      background: var(--surface);
-      font-size: 1rem;
-      font-weight: 600;
-      color: var(--accent);
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      margin: 0;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-    
-    /* Players List */
-    #players {
-      flex: 1;
-      list-style: none;
-      padding: 0.5rem 0;
-      overflow-y: auto;
-    }
-    
-    #players li {
-      padding: 0.9rem 1.5rem;
-      color: var(--text-muted);
-      cursor: pointer;
-      transition: background .2s;
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      position: relative;
-      border-bottom: 1px solid var(--border);
-    }
-    
-    #players li:last-child {
-      border-bottom: none;
-    }
-    
-    #players li:hover {
-      background: rgba(59, 130, 246, 0.08);
-    }
-    
-    #players li.selected {
-      background: rgba(59, 130, 246, 0.15);
-      color: var(--accent);
-      font-weight: 500;
-      border-left: 3px solid var(--accent);
-    }
-    
-    #players li.selected::after {
-      content: '✓';
-      position: absolute;
-      right: 1.5rem;
-      color: var(--accent);
-      font-weight: bold;
-    }
-    
-    /* Action Buttons */
-    .buttons {
-      padding: 1.25rem 1.5rem;
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-      gap: 0.85rem;
-    }
-    
-    .buttons button {
-      padding: 0.75rem;
-      background: var(--surface);
-      border: none;
-      border-radius: 8px;
-      color: var(--text);
-      cursor: pointer;
-      transition: all .2s;
-      font-weight: 500;
-      text-transform: uppercase;
-      font-size: 0.75rem;
-      letter-spacing: 0.5px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.5rem;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
-    
-    .buttons button:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-    }
-    
-    .buttons button[data-action="kick"] {
-      background: var(--danger);
-      color: #fff;
-    }
-    
-    .buttons button[data-action="ban"] {
-      background: var(--warning);
-      color: #fff;
-    }
-    
-    .buttons button[data-action="freeze"] {
-      background: var(--success);
-      color: #fff;
-    }
-    
-    .buttons button[data-action="teleportTo"] {
-      background: #8b5cf6;
-      color: #fff;
-    }
-    
-    .buttons button[data-action="bring"] {
-      background: #ec4899;
-      color: #fff;
-    }
-    
-    hr {
-      border: none;
-      border-top: 1px solid var(--border);
-      margin: 0.5rem 1.5rem;
-    }
-    
-    /* Financial Management */
-    .money-ops {
-      padding: 1.25rem 1.5rem;
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 1rem;
-    }
-    
-    .money-ops select, 
-    .money-ops input {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      color: var(--text);
-      padding: 0.75rem;
-      border-radius: 8px;
-      font-size: 0.9rem;
-      width: 100%;
-      transition: border-color 0.2s;
-    }
-    
-    .money-ops select:focus, 
-    .money-ops input:focus {
-      outline: none;
-      border-color: var(--accent);
-    }
-    
-    #execMoneyOp {
-      background: var(--accent);
-      color: white;
-      border: none;
-      padding: 0.85rem;
-      border-radius: 8px;
-      cursor: pointer;
-      font-weight: 600;
-      transition: background .2s;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-top: 0.5rem;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-    }
-    
-    #execMoneyOp:hover {
-      background: #2563eb;
-    }
-    
-    /* Departments List */
-    .dept-list {
-      padding: 1.25rem 1.5rem;
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-      flex: 1;
-      overflow-y: auto;
-    }
-    
-    .dept-list ul {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-    }
-    
-    .dept-list li {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0.85rem;
-      background: var(--surface);
-      border-radius: 8px;
-      border: 1px solid var(--border);
-    }
-    
-    .dept-list .dept-info {
-      display: flex;
-      flex-direction: column;
-      gap: 0.25rem;
-    }
-    
-    .dept-list .dept-name {
-      font-weight: 600;
-      color: var(--text);
-    }
-    
-    .dept-list .dept-details {
-      font-size: 0.85rem;
-      color: var(--text-muted);
-      display: flex;
-      gap: 1rem;
-    }
-    
-    .dept-list input {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      color: var(--text);
-      padding: 0.5rem;
-      border-radius: 6px;
-      font-size: 0.85rem;
-      max-width: 100px;
-    }
-    
-    .dept-list button {
-      background: var(--accent);
-      border: none;
-      border-radius: 6px;
-      color: white;
-      padding: 0.5rem 0.75rem;
-      cursor: pointer;
-      transition: background .2s;
-      font-weight: 500;
-      font-size: 0.75rem;
-      display: flex;
-      align-items: center;
-      gap: 0.25rem;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
-    
-    .dept-list button:hover {
-      background: #2563eb;
-    }
-    
-    .dept-list .action-buttons {
-      display: flex;
-      gap: 0.5rem;
-    }
-    
-    .dept-list .edit-btn {
-      background: var(--surface);
-      color: var(--text);
-    }
-    
-    .dept-list .edit-btn:hover {
-      background: var(--border);
-    }
-    
-    #newDeptForm {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr auto;
-      gap: 0.75rem;
-      margin-top: 1rem;
-      padding-top: 1rem;
-      border-top: 1px solid var(--border);
-    }
-    
-    #newDeptForm input {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      color: var(--text);
-      padding: 0.65rem;
-      border-radius: 6px;
-      font-size: 0.85rem;
-    }
-    
-    #createDeptBtn {
-      background: var(--success);
-      color: white;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.5rem;
-    }
-    
-    #createDeptBtn:hover {
-      background: #16a34a;
-    }
-    
-    /* Scrollbar Styling */
-    ::-webkit-scrollbar {
-      width: 8px;
-    }
-    
-    ::-webkit-scrollbar-track {
-      background: transparent;
-    }
-    
-    ::-webkit-scrollbar-thumb {
-      background: var(--accent);
-      border-radius: 4px;
-    }
-    
-    ::-webkit-scrollbar-thumb:hover {
-      background: #2563eb;
-    }
-    
-    /* Status Indicator */
-    .status-indicator {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      font-size: 0.8rem;
-      color: var(--text-muted);
-      padding: 0 1.5rem 1rem;
-    }
-    
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--success);
-      animation: pulse 2s infinite;
-    }
-    
-    @keyframes pulse {
-      0% { opacity: 0.7; }
-      50% { opacity: 1; }
-      100% { opacity: 0.7; }
-    }
-  </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="styles.css">
+
 </head>
 <body>
   <div id="admin-menu" class="hidden">
     <div class="menu-container">
-      <!-- In-UI Error Notification Banner -->
-      <div id="error-notification"></div>
+      <!-- Notification Container -->
+      <div id="notification-container"></div>
       
       <div class="header">
-        <h2><i class="fas fa-shield-alt"></i> Admin Management</h2>
+        <h2><i class="fas fa-shield-alt"></i> Enhanced Admin Panel</h2>
         <button id="closeBtn" title="Close"><i class="fas fa-times"></i></button>
+      </div>
+      
+      <div class="tabs">
+        <div class="tab active" data-tab="admin">Admin Tools</div>
+        <div class="tab" data-tab="reports">Player Reports</div>
       </div>
       
       <div class="status-indicator">
         <div class="status-dot"></div>
-        <span>Connected to server</span>
+        <span>Connected to server - v2.1.0</span>
       </div>
       
-      <div class="content">
+      <!-- Admin Tools Tab -->
+      <div class="content" id="admin-tools-tab">
         <!-- Players Panel -->
         <div class="panel">
           <h3><i class="fas fa-users"></i> Active Players</h3>
@@ -546,8 +65,8 @@
               <option value="transfer">Transfer Funds</option>
               <option value="daily">Daily Reward</option>
             </select>
-            <input type="number" id="moneyAmt" placeholder="Amount">
-            <input type="number" id="moneyExtra" placeholder="Target ID" class="hidden">
+            <input type="number" id="moneyAmt" placeholder="Amount" min="0">
+            <input type="number" id="moneyExtra" placeholder="Target Player ID" class="hidden">
             <button id="execMoneyOp"><i class="fas fa-check-circle"></i> Confirm Transaction</button>
           </div>
         </div>
@@ -556,329 +75,562 @@
         <div class="panel">
           <h3><i class="fas fa-building"></i> Departments</h3>
           <div class="dept-list">
+            <div class="dept-header">
+              <h4>Department Management</h4>
+              <div class="dept-controls">
+                <select class="dept-filter" id="deptFilter">
+                  <option value="all">All Departments</option>
+                  <option value="police">Police</option>
+                  <option value="ems">EMS</option>
+                  <option value="mechanic">Mechanic</option>
+                </select>
+                <input type="text" class="dept-filter" id="deptSearch" placeholder="Search departments...">
+              </div>
+            </div>
+            
             <ul id="departments">
               <!-- Departments will be populated by JS -->
             </ul>
+            
             <div id="newDeptForm">
+              <h4><i class="fas fa-plus-circle"></i> Create New Department</h4>
               <input type="text" id="deptNameInput" placeholder="Department Name">
-              <input type="number" id="deptPayInput" placeholder="Paycheck">
-              <input type="text" id="deptDiscordInput" placeholder="Discord ID">
-              <button id="createDeptBtn"><i class="fas fa-plus"></i> Create</button>
+              <input type="number" id="deptPayInput" placeholder="Paycheck Amount" min="0">
+              
+              <div class="discord-input-container">
+                <input type="text" id="deptDiscordInput" placeholder="Discord Role ID (Player's)">
+                <button id="usePlayerDiscordBtn" title="Use selected player's Discord ID">
+                  <i class="fas fa-user"></i>
+                </button>
+              </div>
+              
+              <p class="help-text">
+                <i class="fas fa-info-circle"></i> Enter the Discord Role ID that players must have to be in this department.
+                Use the player button to automatically use the selected player's Discord ID.
+              </p>
+              
+              <button id="createDeptBtn"><i class="fas fa-plus"></i> Create Department</button>
             </div>
           </div>
         </div>
       </div>
+      
+      <!-- Reports Tab -->
+      <div class="content hidden" id="reports-tab">
+        <div class="panel" style="grid-column: span 3;">
+          <h3><i class="fas fa-flag"></i> Player Reports</h3>
+          <div class="reports-container">
+            <div class="report-filters">
+              <div class="report-filter active" data-filter="all">All Reports</div>
+              <div class="report-filter" data-filter="pending">Pending</div>
+              <div class="report-filter" data-filter="resolved">Resolved</div>
+            </div>
+            
+            <ul id="reports-list" class="reports-list">
+              <!-- Reports will be populated by JS -->
+            </ul>
+          </div>
+        </div>
+      </div>
+
+    <div id="confirm-modal" class="modal hidden">
+      <div class="modal-box">
+        <h3 class="modal-title">Are you sure?</h3>
+        <p class="modal-text">This action cannot be undone.</p>
+        <div class="modal-actions">
+          <button id="confirm-yes" class="btn btn-danger">Yes, Delete</button>
+          <button id="confirm-no" class="btn btn-outline">Cancel</button>
+        </div>
+      </div>
+    </div>
     </div>
   </div>
-
-  <script>
-    // Utility to show an in-UI error notification
-    (() => {
-      const notification = document.getElementById('error-notification');
-      let hideTimeout = null;
-
-      // Show the banner with a given message, auto-hide after 4 seconds
-      window.showError = function(message) {
-        // Clear previous timeout if still pending
-        if (hideTimeout) {
-          clearTimeout(hideTimeout);
-          hideTimeout = null;
-        }
-
-        notification.textContent = message;
-        notification.classList.add('show');
-
-        // Auto-hide after 4 seconds
-        hideTimeout = setTimeout(() => {
-          notification.classList.remove('show');
-          hideTimeout = null;
-        }, 4000);
+<script>
+  // Enhanced Notification System
+  (() => {
+    const container = document.getElementById('notification-container');
+    let notificationCount = 0;
+    window.showNotification = function(message, type = 'success', title = null, duration = 4000) {
+      const id = `notification-${++notificationCount}`;
+      const n  = document.createElement('div');
+      n.id = id; n.className = `notification ${type}`;
+      const icons = {
+        success: 'fa-circle-check',
+        error:   'fa-circle-exclamation',
+        warning: 'fa-triangle-exclamation',
+        info:    'fa-circle-info'
       };
+      n.innerHTML = `
+        <i class="fas ${icons[type] || icons.info}"></i>
+        <div class="content">
+          ${title ? `<div class="title">${title}</div>` : ''}
+          <div class="message">${message}</div>
+        </div>
+        <button class="close-btn">&times;</button>
+      `;
+      container.appendChild(n);
+      requestAnimationFrame(() => n.classList.add('show'));
+      const hideTimer = setTimeout(() => hideNotification(id), duration);
+      n.querySelector('.close-btn').addEventListener('click', () => {
+        clearTimeout(hideTimer);
+        hideNotification(id);
+      });
+    };
+    function hideNotification(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.classList.remove('show');
+      setTimeout(() => el.remove(), 300);
+    }
+  })();
 
-      // Optionally, a function to clear immediately
-      window.clearError = function() {
-        if (hideTimeout) {
-          clearTimeout(hideTimeout);
-          hideTimeout = null;
-        }
-        notification.classList.remove('show');
-      };
-    })();
+  // In‑UI confirmation modal
+  function confirmModal(message = "Are you sure?", yesCb, noCb = () => {}) {
+    const modal = document.getElementById("confirm-modal");
+    modal.querySelector('.modal-text').innerText = message;
+    modal.classList.remove('hidden');
 
-    document.getElementById('moneyOp').addEventListener('change', function() {
-      document.getElementById('moneyExtra').classList.toggle('hidden', this.value !== 'transfer');
-    });
+    const yesBtn = document.getElementById("confirm-yes");
+    const noBtn  = document.getElementById("confirm-no");
 
-    document.addEventListener('DOMContentLoaded', () => {
-      const menu = document.getElementById('admin-menu');
-      const closeBtn = document.getElementById('closeBtn');
-      let selectedId = null;
+    const cleanup = () => {
+      yesBtn.removeEventListener('click', onYes);
+      noBtn.removeEventListener('click', onNo);
+      modal.classList.add('hidden');
+    };
 
-      function closeMenu() {
-        fetch(`https://${GetParentResourceName()}/closeMenu`, {
-          method: 'POST',
-          headers: {'Content-Type':'application/json'}
-        }).then(() => {
-          menu.classList.add('hidden');
-          // Clear any lingering error
-          clearError();
-        });
-      }
-      closeBtn.addEventListener('click', closeMenu);
-      document.addEventListener('keydown', e => { 
-        if (e.key === 'Escape') {
-          closeMenu();
+    function onYes() { cleanup(); yesCb(); }
+    function onNo()  { cleanup(); noCb(); }
+
+    yesBtn.addEventListener('click', onYes);
+    noBtn.addEventListener('click', onNo);
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    // Initial notifications
+    showNotification('Admin panel initialized', 'success', 'System Ready');
+    showNotification('Discord ID helper active', 'info', 'Feature Enabled');
+
+    // Element refs
+    const menu       = document.getElementById('admin-menu');
+    const closeBtn   = document.getElementById('closeBtn');
+    const adminTab   = document.getElementById('admin-tools-tab');
+    const reportsTab = document.getElementById('reports-tab');
+    const tabButtons = document.querySelectorAll('.tab');
+    let selectedId = null;
+    let selectedPlayerDiscord = null;
+    let currentReportsFilter = 'all';
+
+    function showError(msg) {
+      showNotification(msg, 'error', 'Error');
+    }
+
+    // Tab switching
+    tabButtons.forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabButtons.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        if (tab.dataset.tab === 'admin') {
+          adminTab.classList.remove('hidden');
+          reportsTab.classList.add('hidden');
+        } else {
+          adminTab.classList.add('hidden');
+          reportsTab.classList.remove('hidden');
+          fetchReports();
         }
       });
+    });
 
-      window.addEventListener('message', ev => {
-        if (ev.data.action === 'openMenu') {
+    // Close menu
+    function closeMenu() {
+      fetch(`https://${GetParentResourceName()}/closeMenu`, { method: 'POST' })
+        .finally(() => menu.classList.add('hidden'));
+    }
+    closeBtn.addEventListener('click', closeMenu);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
+
+    // NUI listener
+    window.addEventListener('message', event => {
+      const d = event.data;
+      switch (d.action) {
+        case 'openMenu':
           menu.classList.remove('hidden');
           fetchPlayers();
           fetchDepartments();
-        } else if (ev.data.action === 'loadDepartments') {
-          renderDepartments(ev.data.departments);
-        }
-      });
+          showNotification('Admin panel opened', 'success');
+          break;
 
-      function fetchPlayers() {
-        fetch(`https://${GetParentResourceName()}/getPlayers`, {
-          method:'POST',
-          headers:{'Content-Type':'application/json'}
-        })
+        case 'loadDepartments':
+          renderDepartments(d.departments || []);
+          break;
+
+        case 'loadReports':
+          renderReports(Object.values(d.reports || {}));
+          break;
+
+        case 'newReport':
+          prependReportToUI(d.report);
+          showNotification(`New report from ${d.report.reporterName}`, 'warning', 'New Report');
+          break;
+
+        case 'updateReport': {
+          const item = document.querySelector(`#reports-list li[data-id="${d.id}"]`);
+          if (item) {
+            item.classList.replace('pending','resolved');
+            const btn = item.querySelector('.report-btn.resolve');
+            if (btn) btn.remove();
+            showNotification(`Report #${d.id} resolved`, 'success', 'Report Resolved');
+            filterReports();
+          }
+          break;
+        }
+
+        case 'removeReport': {
+          const li = document.querySelector(`#reports-list li[data-id="${d.id}"]`);
+          if (li) li.remove();
+          showNotification(`Report #${d.id} deleted`, 'warning', 'Report Removed');
+          break;
+        }
+
+        case 'closeMenu':
+          closeMenu();
+          break;
+      }
+    });
+
+    // ---- Fetchers ----
+    function fetchPlayers() {
+      fetch(`https://${GetParentResourceName()}/getPlayers`, { method: 'POST' })
         .then(r => r.json())
-        .then(d => {
+        .then(data => {
           const ul = document.getElementById('players');
           ul.innerHTML = '';
-          d.players.forEach(p => {
+          data.players.forEach(p => {
             const li = document.createElement('li');
-            li.textContent = `${p.name} [${p.id}]`;
-            li.onclick = () => {
+            li.dataset.id = p.id;
+            li.dataset.discord = p.discord || '';
+            li.innerHTML = `
+              <span>${p.name}</span>
+              <span class="player-id">${p.id}</span>
+              <span class="player-discord">${p.discord ? p.discord.slice(0,6)+'...' : 'N/A'}</span>
+            `;
+            li.addEventListener('click', () => {
               document.querySelectorAll('#players li').forEach(x => x.classList.remove('selected'));
               li.classList.add('selected');
               selectedId = p.id;
-            };
+              selectedPlayerDiscord = p.discord || '';
+              showNotification(`Selected player: ${p.name} (ID: ${p.id})`, 'success', 'Player Selected');
+            });
             ul.appendChild(li);
           });
-          // If no players, reset selectedId
-          if (!d.players.length) {
-            selectedId = null;
-          }
         })
+        .catch(err => showError('Failed to fetch players: ' + err.message));
+    }
+
+    function fetchDepartments() {
+      const ul = document.getElementById('departments');
+      ul.innerHTML = '<li class="loading">Loading departments…</li>';
+      fetch(`https://${GetParentResourceName()}/getDepartments`, { method: 'POST' })
         .catch(err => {
-          console.error('Error fetching players:', err);
-          showError('Failed to load players from server.');
+          showError('Could not load departments: ' + err.message);
+          ul.innerHTML = '<li class="error">Failed to load.</li>';
         });
-      }
+    }
 
-      function fetchDepartments() {
-        fetch(`https://${GetParentResourceName()}/getDepartments`, {
-          method:'POST',
-          headers:{'Content-Type':'application/json'}
-        })
-        .catch(err => {
-          console.error('Error fetching departments:', err);
-          showError('Failed to load departments from server.');
-        });
-      }
+    function fetchReports() {
+      fetch(`https://${GetParentResourceName()}/adminOpenedMenu`, { method: 'POST' })
+        .catch(err => showError('Could not load reports: ' + err.message));
+    }
 
-      function renderDepartments(depts) {
-        const ul = document.getElementById('departments');
-        ul.innerHTML = '';
-        depts.forEach(d => {
-          const li = document.createElement('li');
-          
-          const infoDiv = document.createElement('div');
-          infoDiv.className = 'dept-info';
-          
-          const nameSpan = document.createElement('span');
-          nameSpan.className = 'dept-name';
-          nameSpan.textContent = d.department;
-          
-          const detailsDiv = document.createElement('div');
-          detailsDiv.className = 'dept-details';
-          detailsDiv.innerHTML = `
-            <span>Pay: $${d.paycheck}</span>
-            <span>Discord: ${d.discordid}</span>
-          `;
-          
-          infoDiv.appendChild(nameSpan);
-          infoDiv.appendChild(detailsDiv);
-          
-          const editForm = document.createElement('div');
-          editForm.style.display = 'none'; 
-          editForm.style.alignItems = 'center';
-          editForm.style.gap = '0.5rem';
-          
-          const payInput = document.createElement('input');
-          payInput.type = 'number'; 
-          payInput.value = d.paycheck;
-          payInput.placeholder = "Paycheck";
-          
-          const discordInput = document.createElement('input');
-          discordInput.type = 'text'; 
-          discordInput.value = d.discordid;
-          discordInput.placeholder = "Discord ID";
-          
-          const saveBtn = document.createElement('button');
-          saveBtn.innerHTML = '<i class="fas fa-save"></i> Save';
-          
-          const cancelBtn = document.createElement('button');
-          cancelBtn.innerHTML = '<i class="fas fa-times"></i> Cancel';
-          cancelBtn.className = 'edit-btn';
-          
-          editForm.append(payInput, discordInput, saveBtn, cancelBtn);
+    // ---- Unified Player Action Buttons (kick, ban, teleportTo, bring, freeze) ----
+    const actionButtons = document.querySelectorAll('.buttons button[data-action]');
+    actionButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const action = btn.dataset.action; // "kick", "ban", "teleportTo", "bring", "freeze"
+        if (!selectedId) {
+          return showNotification('Select a player first', 'error');
+        }
 
-          const btns = document.createElement('div');
-          btns.className = 'action-buttons';
-          
-          const editBtn = document.createElement('button');
-          editBtn.className = 'edit-btn';
-          editBtn.innerHTML = '<i class="fas fa-edit"></i> Edit';
-          
-          const deleteBtn = document.createElement('button');
-          deleteBtn.innerHTML = '<i class="fas fa-trash"></i> Delete';
-          deleteBtn.style.background = 'var(--danger)';
-          
-          btns.append(editBtn, deleteBtn);
+        const actionLabel = action
+          .replace(/([A-Z])/g, ' $1')  // split camelCase
+          .replace(/^./, str => str.toUpperCase());
 
-          // Edit Button
-          editBtn.onclick = () => {
-            infoDiv.style.display = 'none'; 
-            btns.style.display = 'none'; 
-            editForm.style.display = 'flex';
-          };
-          
-          // Delete Button
-          deleteBtn.onclick = () => {
-            // Replace confirm(...) with an in-UI prompt
-            const departmentName = d.department;
-            // Ask the user for confirmation by showing a prompt inside the menu
-            // We'll simply use JavaScript's confirm for now but could be upgraded to an in-UI modal.
-            const answer = confirm(`Remove "${departmentName}"?`);
-            if (!answer) return;
-            fetch(`https://${GetParentResourceName()}/removeDepartment`, {
-              method:'POST',
-              headers:{'Content-Type':'application/json'},
-              body: JSON.stringify({ department: departmentName })
-            })
-            .then(() => fetchDepartments())
-            .catch(err => {
-              console.error('Error removing department:', err);
-              showError(`Failed to remove department "${departmentName}".`);
-            });
-          };
+        confirmModal(
+          `Are you sure you want to ${actionLabel.toLowerCase()} player ${selectedId}?`,
+          () => {
+            const payload = { target: selectedId };
+            if (action === 'kick')      payload.reason = 'Kicked by admin';
+            // you can add more data for ban duration, etc.
 
-          saveBtn.onclick = () => {
-            const newPay = payInput.value;
-            const newDiscord = discordInput.value;
-            if (newPay === '') {
-              showError('Please enter a valid paycheck amount.');
-              return;
-            }
-            fetch(`https://${GetParentResourceName()}/modifyDepartment`, {
-              method:'POST',
-              headers:{'Content-Type':'application/json'},
-              body: JSON.stringify({
-                department: d.department,
-                paycheck: newPay,
-                discordid: newDiscord
-              })
+            fetch(`https://${GetParentResourceName()}/${action}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
             })
             .then(() => {
-              editForm.style.display = 'none';
-              infoDiv.style.display = '';
-              btns.style.display = 'flex';
-              fetchDepartments();
+              showNotification(
+                `${actionLabel} successful for player ${selectedId}`,
+                'success',
+                actionLabel
+              );
             })
             .catch(err => {
-              console.error('Error modifying department:', err);
-              showError(`Failed to update department "${d.department}".`);
+              showNotification(
+                `${actionLabel} failed: ${err.message}`,
+                'error',
+                actionLabel
+              );
             });
-          };
-          
-          cancelBtn.onclick = () => {
-            editForm.style.display = 'none';
-            infoDiv.style.display = '';
-            btns.style.display = 'flex';
-          };
+          }
+        );
+      });
+    });
 
-          li.append(infoDiv, editForm, btns);
-          ul.appendChild(li);
+    // ---- Render Departments ----
+    function renderDepartments(depts) {
+      const ul = document.getElementById('departments');
+      ul.innerHTML = '';
+      if (!depts.length) {
+        ul.innerHTML = '<li class="no-depts">No departments.</li>';
+        return;
+      }
+      depts.forEach(d => {
+        const li = document.createElement('li');
+        li.className = 'dept-item';
+        li.innerHTML = `
+          <div class="dept-info">
+            <div class="dept-details">
+              <div class="dept-name">${d.department}</div>
+              <div class="dept-meta">
+                <span><i class="fas fa-money-bill-wave"></i> $${d.paycheck}</span>
+                <span><i class="fab fa-discord"></i> ${d.discordid}</span>
+              </div>
+            </div>
+            <div class="dept-actions">
+              <button class="dept-btn edit"><i class="fas fa-edit"></i></button>
+              <button class="dept-btn delete"><i class="fas fa-trash"></i></button>
+            </div>
+          </div>
+          <div class="edit-form">
+            <div class="form-group">
+              <label>Department Name</label>
+              <input type="text" class="form-control" value="${d.department}" disabled>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Paycheck Amount</label>
+                <input type="number" class="form-control paycheck-input" value="${d.paycheck}" min="0">
+              </div>
+              <div class="form-group">
+                <label>Discord Role ID</label>
+                <div class="discord-input-container">
+                  <input type="text" class="form-control discord-input" value="${d.discordid}" placeholder="Discord Role ID">
+                  <button class="use-player-discord" title="Use selected player's Discord ID"><i class="fas fa-user"></i></button>
+                </div>
+              </div>
+            </div>
+            <div class="form-footer">
+              <button class="btn btn-outline cancel-edit">Cancel</button>
+              <button class="btn btn-primary save-dept">Save Changes</button>
+            </div>
+          </div>
+        `;
+
+        li.querySelector('.dept-btn.edit').addEventListener('click', () => li.classList.add('editing'));
+
+        li.querySelector('.dept-btn.delete').addEventListener('click', () => {
+          confirmModal(`Delete department "${d.department}"?`, () => {
+            fetch(`https://${GetParentResourceName()}/removeDepartment`, {
+              method: 'POST',
+              headers: {'Content-Type':'application/json'},
+              body: JSON.stringify({ department: d.department })
+            }).catch(err => showError(`Failed to delete: ${err.message}`));
+          });
+        });
+
+        li.querySelector('.cancel-edit').addEventListener('click', () => li.classList.remove('editing'));
+
+        li.querySelector('.save-dept').addEventListener('click', () => {
+          const paycheck = li.querySelector('.paycheck-input').value;
+          const discord  = li.querySelector('.discord-input').value.trim();
+          if (!paycheck || isNaN(paycheck) || paycheck < 0)
+            return showNotification('Enter a valid paycheck', 'error', 'Validation Error');
+          if (!discord)
+            return showNotification('Discord ID is required', 'error', 'Validation Error');
+
+          fetch(`https://${GetParentResourceName()}/modifyDepartment`, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ department: d.department, paycheck: paycheck, discordid: discord })
+          }).catch(err => showError(`Update failed: ${err.message}`));
+        });
+
+        li.querySelector('.use-player-discord').addEventListener('click', () => {
+          if (!selectedPlayerDiscord) return showNotification('No player selected', 'warning', 'Action Required');
+          li.querySelector('.discord-input').value = selectedPlayerDiscord;
+          showNotification('Discord ID applied from selected player', 'success');
+        });
+
+        ul.appendChild(li);
+      });
+    }
+
+    // ---- Render Reports & Actions ----
+    function buildReportLI(r) {
+      const li = document.createElement('li');
+      li.className = `report-item ${r.resolved ? 'resolved' : 'pending'}`;
+      li.dataset.id = r.id;
+      li.dataset.status = r.resolved ? 'resolved' : 'pending';
+      li.innerHTML = `
+        <div class="report-header">
+          <div class="report-title">Report #${r.id}</div>
+          <div class="report-details">
+            <span><i class="fas fa-user"></i> ${r.reporterName} (ID: ${r.reporterId})</span>
+            <span><i class="fas fa-user"></i> ${r.targetName} (ID: ${r.targetId})</span>
+            <span><i class="fas fa-clock"></i> ${r.time}</span>
+          </div>
+          <div class="report-actions">
+            ${!r.resolved ? '<button class="report-btn resolve"><i class="fas fa-check"></i> Resolve</button>' : ''}
+            <button class="report-btn delete"><i class="fas fa-trash"></i> Delete</button>
+            <button class="report-btn teleport"><i class="fas fa-location-arrow"></i> Teleport</button>
+          </div>
+        </div>
+        <div class="report-content">
+          <div class="report-reason">${r.reason}</div>
+        </div>
+      `;
+
+      if (!r.resolved) {
+        li.querySelector('.resolve').addEventListener('click', () => {
+          fetch(`https://${GetParentResourceName()}/resolveReport`, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ id: r.id })
+          }).catch(err => showError(`Resolve failed: ${err.message}`));
         });
       }
 
-      document.getElementById('createDeptBtn').onclick = () => {
-        const name = document.getElementById('deptNameInput').value.trim();
-        const pay = document.getElementById('deptPayInput').value;
-        const discord = document.getElementById('deptDiscordInput').value.trim() || 'global';
-        if (!name || pay === '') {
-          showError('Enter both department name and paycheck.');
-          return;
-        }
-        fetch(`https://${GetParentResourceName()}/createDepartment`, {
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({
-            department: name,
-            paycheck: pay,
-            discordid: discord
-          })
-        })
-        .then(() => {
-          document.getElementById('deptNameInput').value = '';
-          document.getElementById('deptPayInput').value = '';
-          document.getElementById('deptDiscordInput').value = '';
-          fetchDepartments();
-        })
-        .catch(err => {
-          console.error('Error creating department:', err);
-          showError(`Failed to create department "${name}".`);
+      li.querySelector('.delete').addEventListener('click', () => {
+        confirmModal(`Delete report #${r.id}?`, () => {
+          fetch(`https://${GetParentResourceName()}/deleteReport`, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ id: r.id })
+          }).catch(err => showError(`Delete failed: ${err.message}`));
         });
-      };
-
-      document.querySelectorAll('.buttons button').forEach(btn => {
-        btn.onclick = () => {
-          if (!selectedId) {
-            showError('Select a player first.');
-            return;
-          }
-          fetch(`https://${GetParentResourceName()}/${btn.dataset.action}`, {
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ target: selectedId })
-          })
-          .catch(err => {
-            console.error(`Error performing action ${btn.dataset.action}:`, err);
-            showError(`Failed to ${btn.dataset.action} player ${selectedId}.`);
-          });
-        };
       });
 
-      document.getElementById('execMoneyOp').onclick = () => {
-        if (!selectedId) {
-          showError('Select a player first.');
-          return;
-        }
-        const op = document.getElementById('moneyOp').value;
-        const amt = document.getElementById('moneyAmt').value;
-        // If amount is empty or not a positive number
-        if (amt === '' || isNaN(amt) || Number(amt) < 0) {
-          showError('Enter a valid amount.');
-          return;
-        }
-        const extra = document.getElementById('moneyExtra').value;
-        fetch(`https://${GetParentResourceName()}/moneyOp`, {
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ op, target: selectedId, amount: amt, extra })
+      li.querySelector('.teleport').addEventListener('click', () => {
+        fetch(`https://${GetParentResourceName()}/teleportReport`, {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ target: r.targetId })
         })
-        .catch(err => {
-          console.error('Error executing money operation:', err);
-          showError('Failed to execute money operation.');
-        });
-      };
+        .then(() => showNotification(`Teleported to ${r.targetName}`, 'success'))
+        .catch(err => showError(`Teleport failed: ${err.message}`));
+      });
+
+      return li;
+    }
+
+    function renderReports(reports) {
+      const ul = document.getElementById('reports-list');
+      ul.innerHTML = '';
+      if (!reports.length) {
+        ul.innerHTML = '<li class="no-reports">No reports available</li>';
+        return;
+      }
+      reports.forEach(r => ul.appendChild(buildReportLI(r)));
+      filterReports();
+    }
+
+    function prependReportToUI(r) {
+      const ul = document.getElementById('reports-list');
+      const empty = ul.querySelector('.no-reports');
+      if (empty) empty.remove();
+      ul.prepend(buildReportLI(r));
+      filterReports();
+    }
+
+    function filterReports() {
+      document.querySelectorAll('.report-item').forEach(li => {
+        const st = li.dataset.status;
+        li.style.display = (currentReportsFilter === 'all' || currentReportsFilter === st)
+          ? 'block' : 'none';
+      });
+    }
+
+    // ---- Department Creation ----
+document.getElementById('usePlayerDiscordBtn').addEventListener('click', () => {
+  if (!selectedId) {
+    return showNotification('Select a player first','error','Action Required');
+  }
+
+  // 1) ask client.lua to start the request
+  SendNUIMessage({
+    action: 'requestDiscord',
+    id: selectedId
+  });
+});
+
+    document.getElementById('createDeptBtn').addEventListener('click', () => {
+      const name = document.getElementById('deptNameInput').value.trim();
+      const pay  = document.getElementById('deptPayInput').value;
+      const disc = document.getElementById('deptDiscordInput').value.trim();
+      if (!name) return showNotification('Department name required','error');
+      if (!pay || isNaN(pay)||pay<0) return showNotification('Valid pay required','error');
+      if (!disc) return showNotification('Discord ID required','error');
+
+      fetch(`https://${GetParentResourceName()}/createDepartment`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ department: name, paycheck: pay, discordid: disc })
+      })
+      .then(() => {
+        showNotification(`Created "${name}"`,'success');
+        document.getElementById('deptNameInput').value = '';
+        document.getElementById('deptPayInput').value = '';
+        document.getElementById('deptDiscordInput').value = '';
+        fetchDepartments();
+      })
+      .catch(err => showError(`Create failed: ${err.message}`));
     });
-  </script>
+
+    // ---- Money Operations ----
+    document.getElementById('moneyOp').addEventListener('change', function() {
+      document.getElementById('moneyExtra').classList.toggle('hidden', this.value !== 'transfer');
+    });
+    document.getElementById('execMoneyOp').addEventListener('click', () => {
+      if (!selectedId) return showNotification('Select a player first','error');
+      const op    = document.getElementById('moneyOp').value;
+      const amt   = document.getElementById('moneyAmt').value;
+      const extra = document.getElementById('moneyExtra').value;
+      if (amt === ''||isNaN(amt)||Number(amt)<0) return showNotification('Valid amount required','error');
+      if (op === 'transfer' && (!extra||isNaN(extra)||Number(extra)<=0)) return showNotification('Valid target ID','error');
+
+      fetch(`https://${GetParentResourceName()}/moneyOp`, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ op, target: selectedId, amount: amt, extra: op==='transfer'?extra:undefined })
+      })
+      .then(() => showNotification(`$${amt} ${op} → ${selectedId}`,'success'))
+      .catch(err => showError(`Money op failed: ${err.message}`));
+    });
+
+    // ---- Report Filters ----
+    document.querySelectorAll('.report-filter').forEach(f => {
+      f.addEventListener('click', () => {
+        document.querySelectorAll('.report-filter').forEach(x => x.classList.remove('active'));
+        f.classList.add('active');
+        currentReportsFilter = f.dataset.filter;
+        filterReports();
+      });
+    });
+  });
+</script>
+
+
+
+
 </body>
 </html>
