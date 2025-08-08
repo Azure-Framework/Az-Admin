@@ -71,16 +71,18 @@ local function dbg(fmt, ...) if debugMode then print(('[admin] ' .. fmt):format(
 
 local banned = {}
 local frozen = {}
-
 RegisterNetEvent('adminmenu:verifyAdmin')
 AddEventHandler('adminmenu:verifyAdmin', function()
     local src = source
     print(("[AdminMenu] Event fired, source = %s"):format(tostring(src)))
 
+    -- this flag will let us suppress the warning once we get a reply
+    local gotResponse = false
+
     -- Kick off admin check
     print(("[AdminMenu] Calling Az-Framework:isAdmin for %s"):format(src))
     exports['Az-Framework']:isAdmin(src, function(isAdmin)
-        -- Callback entry
+        gotResponse = true           -- <- mark that we did get a callback
         print(("[AdminMenu] isAdmin callback invoked for %s, returned = %s"):format(src, tostring(isAdmin)))
 
         -- Log the command attempt
@@ -100,9 +102,12 @@ AddEventHandler('adminmenu:verifyAdmin', function()
 
     -- Failsafe: if your callback never fires, you’ll see this after 5 seconds
     Citizen.SetTimeout(5000, function()
-        print(("[AdminMenu] WARNING: No response from isAdmin callback after 5s for %s"):format(src))
+        if not gotResponse then    -- only warn if we still haven’t heard back
+            print(("[AdminMenu] WARNING: No response from isAdmin callback after 5s for %s"):format(src))
+        end
     end)
 end)
+
 
 -- Kicks
 RegisterNetEvent('adminmenu:serverKick')
