@@ -449,8 +449,9 @@
             fetch(`https://${GetParentResourceName()}/removeDepartment`, {
               method: 'POST',
               headers: {'Content-Type':'application/json'},
-              body: JSON.stringify({ department: d.department })
+              body: JSON.stringify({ department: d.department, discordid: d.discordid })
             })
+
             .then(resp => {
               if (!resp.ok) throw new Error(resp.statusText);
               showNotification(`Deleted "${d.department}"`, 'success', 'Department Removed');
