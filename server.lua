@@ -293,13 +293,21 @@ end)
 RegisterNetEvent('adminmenu:serverRemoveDepartment')
 AddEventHandler('adminmenu:serverRemoveDepartment', function(data)
     local src = source
+    local discordid = data.discordid or 'global'
+    local department = data.department
+
+    if not department or department == '' then
+        dbg("RemoveDepartment called with empty department")
+        return
+    end
+
     MySQL.Async.execute(
       'DELETE FROM econ_departments WHERE discordid = ? AND department = ?',
-      { 'global', data.department },
+      { discordid, department },
       function(rowsChanged)
-        dbg("Removed department %s", data.department)
+        dbg("Removed department %s (discordid=%s) -> rowsChanged=%s", tostring(department), tostring(discordid), tostring(rowsChanged))
 
-        -- now fetch the _new_ list and tell the client to reload
+        -- broadcast updated list to the requesting admin (you can change to -1 to broadcast all)
         MySQL.Async.fetchAll(
           'SELECT * FROM econ_departments',
           {},
