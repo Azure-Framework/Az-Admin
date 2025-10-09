@@ -326,16 +326,6 @@ RegisterNetEvent('adminmenu:server:adminOpenedMenu')
      -- you can still trigger departments here if you like
  end)
 
-
-
-
--- ============================================
--- ============================================
--- Helper Commands.
--- ============================================
--- ============================================
-
-
 -- Teleport admin to arbitrary coords: /goto x y z [heading]
 RegisterCommand('goto', function(source, args, rawCommand)
     -- first verify they're an admin
@@ -376,17 +366,6 @@ RegisterCommand('goto', function(source, args, rawCommand)
         dbg("Admin %d used /goto to teleport to (%.2f, %.2f, %.2f, heading=%.2f)", source, x, y, z, h)
     end)
 end, false)
-
-
-
-
-
-
-
-
-
-
-
 
 -- Test: Get active character ID
 RegisterCommand("testchar", function(source, args, raw)
