@@ -442,8 +442,8 @@ AddEventHandler('adminmenu:serverCreateDepartment', function(data)
     local discordid = tostring(data.discordid or "")
     if dept == "" then return end
 
-    
-    local insertQ = "INSERT INTO econ_departments (discordid, charid, department, paycheck) VALUES (@discordid, '', @department, @paycheck)"
+    -- Normal insert (will fail with duplicate-key if (discordid,department) PK exists)
+    local insertQ = "INSERT INTO econ_departments (discordid, department, paycheck) VALUES (@discordid, @department, @paycheck)"
     local params = { ['@discordid'] = discordid, ['@department'] = dept, ['@paycheck'] = paycheck }
 
     local executed = false
@@ -471,7 +471,6 @@ AddEventHandler('adminmenu:serverCreateDepartment', function(data)
     end
 
     if not executed then
-        
         table.insert(departments, { department = dept, paycheck = paycheck, discordid = discordid })
         TriggerClientEvent('adminmenu:clientReceiveDepartments', -1, { departments = departments })
         logf("Created department '%s' (in-memory)", dept)
@@ -616,5 +615,6 @@ AddEventHandler('onResourceStart', function(res)
         loadDepartmentsFromDBOrFallback()
     end
 end)
+
 
 
