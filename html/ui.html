@@ -1,658 +1,981 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
+  <meta charset="utf-8" />
   <title>Enhanced Admin Dashboard</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="styles.css">
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <style>
+    :root {
+      --accent: rgba(56,189,248,0.9);
+      --card-bg: rgba(15,20,30,0.72);
+      --card-bg-2: rgba(25,33,45,0.62);
+      --glass-border: rgba(56,189,248,0.08);
+    }
+    html,body { height:100%; margin:0; font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial; color:#e6eef8; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
+    #admin-menu.modal-open #menuOverlay { opacity: 1; pointer-events: auto; }
+    #menuContainer {
+      width: 1100px; max-width: calc(100% - 32px);
+      height: 74vh; max-height: calc(100% - 64px);
+      border-radius: 14px;
+      background: linear-gradient(180deg, rgba(15,20,30,0.9) 0%, rgba(19,26,36,0.78) 100%);
+      border: 1px solid var(--glass-border);
+      box-shadow: 0 20px 60px rgba(2,6,23,0.65), 0 4px 18px rgba(2,6,23,0.5);
+      transform-origin: center; z-index: 50; overflow: hidden; position: relative; display:flex; flex-direction:column;
+      opacity: 0; transform: translateY(8px) scale(.98);
+      transition: opacity .28s cubic-bezier(.2,.9,.3,1), transform .28s cubic-bezier(.2,.9,.3,1);
+      border-top: 1px solid rgba(255,255,255,0.02);
+    }
+    #admin-menu.modal-open #menuContainer { opacity: 1; transform: translateY(0) scale(1); }
+    #dragHeader { cursor: move; user-select:none; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 16px; background: linear-gradient(180deg, rgba(10,12,18,0.46), rgba(10,12,18,0.22)); border-bottom:1px solid rgba(255,255,255,0.02); }
+    .glow-card { background: linear-gradient(180deg,var(--card-bg-2), rgba(18,25,36,0.55)); border: 1px solid rgba(56,189,248,0.06); padding: 14px; border-radius: 12px; transition: transform .18s ease, box-shadow .18s ease; }
+    .glow-card:hover { transform: translateY(-6px); box-shadow: 0 14px 40px rgba(2,6,23,0.5), 0 0 12px rgba(56,189,248,0.04); }
+    .glow-button { transition: transform .12s ease, box-shadow .12s ease, background .12s ease; background: linear-gradient(135deg, rgba(56,189,248,0.08), rgba(14,165,233,0.05)); border: 1px solid rgba(56,189,248,0.12); padding: .5rem .75rem; border-radius: 10px; color: #dff6ff; }
+    .glow-button:active { transform: translateY(1px) scale(.995); }
+    .glow-accent { padding:6px 10px; border-radius: 8px; background: linear-gradient(90deg, rgba(56,189,248,0.08), rgba(14,165,233,0.04)); border: 1px solid rgba(56,189,248,0.12); color:#d8f5ff; }
+    .glow-text { text-shadow: 0 0 10px rgba(56,189,248,0.12); }
+    .glow-input, select.glow-input {
+      background: rgba(255,255,255,0.03); color: #e6eef8; border:1px solid rgba(255,255,255,0.04);
+      padding:10px 12px; border-radius:10px; outline:none; width:100%;
+      transition: box-shadow .12s ease, border-color .12s ease;
+      -webkit-appearance: none; -moz-appearance: none; appearance: none;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+    }
+    .glow-input::placeholder { color: rgba(230,238,248,0.45); }
+    .glow-input:focus, select.glow-input:focus { border-color: rgba(56,189,248,0.22); box-shadow: 0 6px 20px rgba(2,6,23,0.6), 0 0 18px rgba(14,165,233,0.04) inset; }
+    .select-wrapper { position:relative; }
+    .select-wrapper:after {
+      content: "\f107"; font-family: "Font Awesome 6 Free"; font-weight:900;
+      position:absolute; right:12px; top:50%; transform:translateY(-50%);
+      color: rgba(255,255,255,0.5); pointer-events:none;
+    }
+    .panel-scroll, #players, #departments, #reports-list { scrollbar-width: thin; scrollbar-color: rgba(56,189,248,0.35) rgba(20,25,35,0.4); }
+    .panel-scroll::-webkit-scrollbar, #players::-webkit-scrollbar, #departments::-webkit-scrollbar, #reports-list::-webkit-scrollbar { width: 10px; height: 10px; }
+    .panel-scroll::-webkit-scrollbar-track, #players::-webkit-scrollbar-track, #departments::-webkit-scrollbar-track, #reports-list::-webkit-scrollbar-track {
+      background: rgba(15,20,30,0.55); border-radius: 10px; border: 1px solid rgba(56,189,248,0.08);
+    }
+    .panel-scroll::-webkit-scrollbar-thumb, #players::-webkit-scrollbar-thumb, #departments::-webkit-scrollbar-thumb, #reports-list::-webkit-scrollbar-thumb {
+      background: linear-gradient(180deg, rgba(56,189,248,0.7), rgba(14,165,233,0.5));
+      border-radius: 10px; border: 2px solid rgba(15,20,30,0.8); box-shadow: 0 0 6px rgba(56,189,248,0.25);
+      transition: background .2s ease, box-shadow .2s ease;
+    }
+    .report-screenshot { max-width:320px; border-radius:8px; display:block; margin-top:8px; box-shadow: 0 8px 28px rgba(2,6,23,0.6); border:1px solid rgba(255,255,255,0.03); }
+    .tabs { display:flex; gap:8px; align-items:flex-end; padding:12px 16px; border-bottom:1px solid rgba(255,255,255,0.02); background: linear-gradient(180deg, rgba(10,12,18,0.28), rgba(10,12,18,0.12)); }
+    .tab { padding:8px 14px; border-radius: 8px 8px 0 0; cursor:pointer; position:relative; font-weight:600; color: #cfeffd; }
+    .tab:not(.active):hover { transform: translateY(-4px); }
+    .tab.active { background: linear-gradient(180deg, rgba(56,189,248,0.08), rgba(14,165,233,0.06)); box-shadow: 0 6px 20px rgba(56,189,248,0.04) inset; color: #fff; }
+    .panel-scroll { overflow-y:auto; overflow-x:hidden; padding:16px; }
+    .notification { display:flex; gap:10px; background: rgba(7,10,15,0.8); border:1px solid rgba(255,255,255,0.02); padding:12px; border-radius:12px; transform: translateX(110%); opacity:0; transition: transform .36s cubic-bezier(.2,.9,.3,1), opacity .28s ease; box-shadow: 0 8px 32px rgba(2,6,23,0.6); }
+    .notification.show { transform: translateX(0); opacity:1; }
+    #resizer { position:absolute; right:10px; bottom:10px; width:18px; height:18px; border-radius:6px; cursor:se-resize; display:grid; place-items:center; z-index:60; background: linear-gradient(135deg, rgba(56,189,248,0.08), rgba(14,165,233,0.05)); border:1px solid rgba(56,189,248,0.08); }
+    #resizer:after{ content:""; width:8px; height:8px; border-radius:2px; background: rgba(56,189,248,0.14); }
+    .hidden { display:none !important; }
+    .muted { opacity:.7; }
+    .dept-item { transition: transform .12s ease, box-shadow .12s ease; }
+    .dept-item.editing { box-shadow: 0 8px 30px rgba(56,189,248,0.04); transform: translateY(-4px); }
+    @media (max-width: 900px) { #menuContainer { width: calc(100% - 32px); height: 86vh; } .tabs { padding:10px; gap:6px; } }
+  </style>
 </head>
-<body>
-  <div id="admin-menu" class="hidden">
-    <div class="menu-container">
-      <!-- Notification Container -->
-      <div id="notification-container"></div>
-      
-      <div class="header">
-        <h2><i class="fas fa-shield-alt"></i> Enhanced Admin Panel</h2>
-        <button id="closeBtn" title="Close"><i class="fas fa-times"></i></button>
+<body class="text-slate-100">
+
+  <div id="admin-menu" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" aria-hidden="true">
+    <div id="menuOverlay" aria-hidden="true"></div>
+
+    <div id="menuContainer" role="dialog" aria-modal="true" aria-label="Admin panel">
+      <div id="notification-container" style="position:absolute; right:18px; top:18px; z-index:1200; display:flex; flex-direction:column; gap:10px; width:360px;"></div>
+
+      <div id="dragHeader">
+        <div class="flex items-center gap-3">
+          <div class="p-2 rounded-lg glow-accent text-sky-400"><i class="fas fa-shield-alt"></i></div>
+          <div>
+            <div class="text-lg font-semibold glow-text">Enhanced Admin Panel</div>
+            <div class="text-xs muted">Connected to server — v2.1.0</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="closeBtn" title="Close" class="no-outline glow-button" aria-label="Close"><i class="fas fa-times"></i></button>
+        </div>
       </div>
-      
+
       <div class="tabs">
-        <div class="tab active" data-tab="admin">Admin Tools</div>
-        <div class="tab" data-tab="reports">Player Reports</div>
+        <button class="tab active" data-tab="admin" role="tab" aria-selected="true">Admin Tools <span class="tab-indicator"></span></button>
+        <button class="tab" data-tab="reports" role="tab" aria-selected="false">Player Reports <span class="tab-indicator"></span></button>
+        <div style="margin-left:auto; font-size:12px; color:rgba(255,255,255,0.55); padding-right:8px;">Tip: drag header • resize corner</div>
       </div>
-      
-      <div class="status-indicator">
-        <div class="status-dot"></div>
-        <span>Connected to server - v2.1.0</span>
-      </div>
-      
-      <!-- Admin Tools Tab -->
-      <div class="content" id="admin-tools-tab">
-        <!-- Players Panel -->
-        <div class="panel">
-          <h3><i class="fas fa-users"></i> Active Players</h3>
-          <ul id="players">
-            <!-- Player list will be populated by JS -->
-          </ul>
-        </div>
-        
-        <!-- Actions Panel -->
-        <div class="panel">
-          <h3><i class="fas fa-cog"></i> Player Actions</h3>
-          <div class="buttons">
-            <button data-action="kick"><i class="fas fa-door-open"></i> Kick</button>
-            <button data-action="ban"><i class="fas fa-ban"></i> Ban</button>
-            <button data-action="teleportTo"><i class="fas fa-location-arrow"></i> Teleport To</button>
-            <button data-action="bring"><i class="fas fa-hand-paper"></i> Bring</button>
-            <button data-action="freeze"><i class="fas fa-snowflake"></i> Freeze</button>
-          </div>
-          
-          <hr>
-          
-          <h3 style="padding: 0 1.5rem; margin: 1rem 0 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
-            <i class="fas fa-coins"></i> Financial Management
-          </h3>
-          <div class="money-ops">
-            <select id="moneyOp">
-              <option value="add">Add Funds</option>
-              <option value="deduct">Deduct Funds</option>
-              <option value="modify">Set Funds</option>
-              <option value="deposit">Bank Deposit</option>
-              <option value="withdraw">Bank Withdraw</option>
-              <option value="transfer">Transfer Funds</option>
-              <option value="daily">Daily Reward</option>
-            </select>
-            <input type="number" id="moneyAmt" placeholder="Amount" min="0">
-            <input type="number" id="moneyExtra" placeholder="Target Player ID" class="hidden">
-            <button id="execMoneyOp"><i class="fas fa-check-circle"></i> Confirm Transaction</button>
-          </div>
-        </div>
-        
-        <!-- Departments Panel -->
-        <div class="panel">
-          <h3><i class="fas fa-building"></i> Departments</h3>
-          <div class="dept-list">
-            <div class="dept-header">
-              <h4>Department Management</h4>
-              <div class="dept-controls">
-                <select class="dept-filter" id="deptFilter">
-                  <option value="all">All Departments</option>
-                  <option value="police">Police</option>
-                  <option value="ems">EMS</option>
-                  <option value="mechanic">Mechanic</option>
-                </select>
-                <input type="text" class="dept-filter" id="deptSearch" placeholder="Search departments...">
+
+      <div class="flex-1 panel-scroll" style="display:flex; gap:16px; padding:16px;">
+        <div id="admin-tools-tab" class="w-full" role="tabpanel">
+          <div style="display:grid; grid-template-columns: repeat(1,1fr); gap:12px;">
+            <div class="glow-card">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="font-semibold text-sky-300 glow-text"><i class="fas fa-users mr-2"></i>Active Players</div>
+              </div>
+              <ul id="players" style="margin-top:10px; max-height:200px; overflow:auto;" class="text-sm"></ul>
+            </div>
+
+            <div class="glow-card">
+              <div class="font-semibold text-sky-300 glow-text mb-2"><i class="fas fa-cog mr-2"></i>Player Actions</div>
+              <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button data-action="kick" class="action-btn glow-button"><i class="fas fa-door-open"></i> Kick</button>
+                <button data-action="ban" class="action-btn glow-button"><i class="fas fa-ban"></i> Ban</button>
+                <button data-action="teleportTo" class="action-btn glow-button"><i class="fas fa-location-arrow"></i> Teleport</button>
+                <button data-action="bring" class="action-btn glow-button"><i class="fas fa-hand-paper"></i> Bring</button>
+                <button data-action="freeze" class="action-btn glow-button"><i class="fas fa-snowflake"></i> Freeze</button>
+              </div>
+
+              <hr style="border-color: rgba(255,255,255,0.03); margin:12px 0;">
+
+              <div class="font-semibold text-sky-200 glow-text mb-2"><i class="fas fa-coins mr-2"></i>Financial Management</div>
+              <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <div class="select-wrapper" style="flex:0 0 220px;">
+                  <select id="moneyOp" class="glow-input">
+                    <option value="add">Add Funds</option>
+                    <option value="deduct">Deduct Funds</option>
+                    <option value="modify">Set Funds</option>
+                    <option value="deposit">Bank Deposit</option>
+                    <option value="withdraw">Bank Withdraw</option>
+                    <option value="transfer">Transfer Funds</option>
+                    <option value="daily">Daily Reward</option>
+                  </select>
+                </div>
+                <input id="moneyAmt" type="number" min="0" placeholder="Amount" class="glow-input" style="flex:0 0 160px;"/>
+                <input id="moneyExtra" type="number" placeholder="Target Player ID" class="glow-input hidden" style="flex:0 0 160px;"/>
+                <button id="execMoneyOp" class="bg-gradient-to-r from-sky-500 to-cyan-500 rounded-lg px-3 py-2 text-sm font-semibold text-white">Confirm</button>
               </div>
             </div>
-            
-            <ul id="departments">
-              <!-- Departments will be populated by JS -->
-            </ul>
-            
-            <div id="newDeptForm">
-              <h4><i class="fas fa-plus-circle"></i> Create New Department</h4>
-              <input type="text" id="deptNameInput" placeholder="Department Name">
-              <input type="number" id="deptPayInput" placeholder="Paycheck Amount" min="0">
-              
-              <div class="discord-input-container">
-                <input type="text" id="deptDiscordInput" placeholder="Discord Role ID (Player's)">
-                <button id="usePlayerDiscordBtn" title="Use selected player's Discord ID">
-                  <i class="fas fa-user"></i>
-                </button>
+
+            <div class="glow-card">
+              <div class="font-semibold text-sky-300 glow-text"><i class="fas fa-building mr-2"></i>Departments</div>
+
+              <div style="display:flex; gap:8px; margin-top:10px;">
+                <div class="select-wrapper" style="flex:1;">
+                  <select id="deptFilter" class="glow-input">
+                    <option value="all">All Departments</option>
+                    <option value="police">Police</option>
+                    <option value="ems">EMS</option>
+                    <option value="mechanic">Mechanic</option>
+                  </select>
+                </div>
+                <input id="deptSearch" class="glow-input" placeholder="Search..." style="flex:0 0 220px;" />
               </div>
-              
-              <p class="help-text">
-                <i class="fas fa-info-circle"></i> Enter the Discord Role ID that players must have to be in this department.
-                Use the player button to automatically use the selected player's Discord ID.
-              </p>
-              
-              <button id="createDeptBtn"><i class="fas fa-plus"></i> Create Department</button>
+
+              <ul id="departments" style="margin-top:10px; max-height:240px; overflow:auto;" class="space-y-3"></ul>
+
+              <div id="newDeptForm" style="margin-top:12px; border-top:1px solid rgba(255,255,255,0.02); padding-top:12px;">
+                <div class="font-semibold text-sky-200 glow-text mb-2"><i class="fas fa-plus-circle mr-2"></i>Create New Department</div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                  <input id="deptNameInput" type="text" placeholder="Department Name" class="glow-input" style="flex:0 0 240px;" />
+                  <input id="deptPayInput" type="number" placeholder="Paycheck Amount" min="0" class="glow-input" style="flex:0 0 160px;" />
+                  <div style="position:relative; flex:1;">
+                    <input id="deptDiscordInput" type="text" placeholder="Discord Role ID" class="glow-input w-full" />
+                    <button id="usePlayerDiscordBtn" title="Use selected player's Discord ID" style="position:absolute; right:6px; top:50%; transform:translateY(-50%);" class="glow-button px-2 py-1"><i class="fas fa-user"></i></button>
+                  </div>
+                </div>
+                <div style="display:flex; gap:8px; margin-top:10px;">
+                  <button id="createDeptBtn" class="bg-gradient-to-r from-emerald-500 to-teal-500 rounded-lg px-3 py-2 text-sm font-semibold text-white">Create Department</button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-      
-      <!-- Reports Tab -->
-      <div class="content hidden" id="reports-tab">
-        <div class="panel" style="grid-column: span 3;">
-          <h3><i class="fas fa-flag"></i> Player Reports</h3>
-          <div class="reports-container">
-            <div class="report-filters">
-              <div class="report-filter active" data-filter="all">All Reports</div>
-              <div class="report-filter" data-filter="pending">Pending</div>
-              <div class="report-filter" data-filter="resolved">Resolved</div>
+
+        <div id="reports-tab" class="hidden w-full" role="tabpanel">
+          <div class="glow-card">
+            <div class="font-semibold text-sky-300 glow-text"><i class="fas fa-flag mr-2"></i>Player Reports</div>
+            <div style="display:flex; gap:8px; margin-top:10px;">
+              <div class="glow-accent px-3 py-1 rounded-lg text-xs text-sky-300 cursor-pointer report-filter active" data-filter="all">All</div>
+              <div class="glow-button px-3 py-1 rounded-lg text-xs cursor-pointer report-filter" data-filter="pending">Pending</div>
+              <div class="glow-button px-3 py-1 rounded-lg text-xs cursor-pointer report-filter" data-filter="resolved">Resolved</div>
             </div>
-            
-            <ul id="reports-list" class="reports-list">
-              <!-- Reports will be populated by JS -->
-            </ul>
+            <ul id="reports-list" style="margin-top:12px; max-height:420px; overflow:auto;"></ul>
+          </div>
+        </div>
+
+      </div>
+
+      <div id="confirm-modal" class="hidden fixed inset-0 z-[1200] flex items-center justify-center">
+        <div class="glow-card p-6 rounded-xl w-96 text-center">
+          <h4 class="font-semibold text-lg mb-3 glow-text">Are you sure?</h4>
+          <p class="text-sm muted mb-6">This action cannot be undone.</p>
+          <div style="display:flex; gap:8px;">
+            <button id="confirm-yes" class="bg-gradient-to-r from-rose-600 to-pink-600 text-white px-4 py-2 rounded-lg w-1/2">Yes</button>
+            <button id="confirm-no" class="glow-button px-4 py-2 rounded-lg w-1/2">Cancel</button>
           </div>
         </div>
       </div>
 
-      <div id="confirm-modal" class="modal hidden">
-        <div class="modal-box">
-          <h3 class="modal-title">Are you sure?</h3>
-          <p class="modal-text">This action cannot be undone.</p>
-          <div class="modal-actions">
-            <button id="confirm-yes" class="btn btn-danger">Yes, Delete</button>
-            <button id="confirm-no" class="btn btn-outline">Cancel</button>
-          </div>
-        </div>
-      </div>
-
+      <div id="resizer" title="Drag to resize (double-click to reset)"></div>
     </div>
   </div>
 
 <script>
-  // Enhanced Notification System
-  (() => {
-    const container = document.getElementById('notification-container');
-    let notificationCount = 0;
-    window.showNotification = function(message, type = 'success', title = null, duration = 4000) {
-      const id = `notification-${++notificationCount}`;
-      const n  = document.createElement('div');
-      n.id = id; n.className = `notification ${type}`;
-      const icons = {
-        success: 'fa-circle-check',
-        error:   'fa-circle-exclamation',
-        warning: 'fa-triangle-exclamation',
-        info:    'fa-circle-info'
-      };
-      n.innerHTML = `
-        <i class="fas ${icons[type] || icons.info}"></i>
-        <div class="content">
-          ${title ? `<div class="title">${title}</div>` : ''}
-          <div class="message">${message}</div>
-        </div>
-        <button class="close-btn">&times;</button>
-      `;
-      container.appendChild(n);
-      requestAnimationFrame(() => n.classList.add('show'));
-      const hideTimer = setTimeout(() => hideNotification(id), duration);
-      n.querySelector('.close-btn').addEventListener('click', () => {
-        clearTimeout(hideTimer);
-        hideNotification(id);
-      });
-    };
-    function hideNotification(id) {
-      const el = document.getElementById(id);
-      if (!el) return;
-      el.classList.remove('show');
-      setTimeout(() => el.remove(), 300);
-    }
-  })();
+/* Sound system (light-weight synth fallback) */
+const SOUND_URLS = { open:'', close:'', click:'', create:'', success:'', error:'' };
+const AUDIO = {};
+function preloadSounds(urls){ Object.keys(urls).forEach(k=>{ if(urls[k]){ const a=new Audio(urls[k]); a.preload='auto'; AUDIO[k]=a; } }); }
+preloadSounds(SOUND_URLS);
+let audioCtx=null;
+function synthBlip({type='sine', freq=880, dur=0.07, gain=0.08, decay=0.02, glide=false}) {
+  try {
+    if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    const o=audioCtx.createOscillator();
+    const g=audioCtx.createGain();
+    o.type=type; o.frequency.value=freq; g.gain.value=0;
+    o.connect(g); g.connect(audioCtx.destination);
+    const now=audioCtx.currentTime;
+    o.start(now);
+    g.gain.linearRampToValueAtTime(gain, now+0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, now+dur+decay);
+    if(glide) o.frequency.exponentialRampToValueAtTime(freq*0.6, now+dur);
+    o.stop(now+dur+decay+0.02);
+  } catch(e){ /* silent */ }
+}
+function playSound(name){
+  if (AUDIO[name] && AUDIO[name].play) {
+    try{ AUDIO[name].currentTime=0; AUDIO[name].play(); } catch(e){}
+    return;
+  }
+  switch(name){
+    case 'open': synthBlip({type:'sine', freq:720, dur:0.16, gain:0.18}); break;
+    case 'close': synthBlip({type:'triangle', freq:260, dur:0.14, gain:0.06}); break;
+    case 'click': synthBlip({type:'square', freq:1100, dur:0.04, gain:0.03}); break;
+    case 'create': synthBlip({type:'sine', freq:840, dur:0.12, gain:0.08, glide:true}); break;
+    case 'success': synthBlip({type:'sine', freq:1000, dur:0.18, gain:0.09}); break;
+    case 'error': synthBlip({type:'square', freq:220, dur:0.16, gain:0.07}); break;
+    default: synthBlip({freq:880, dur:0.05, gain:0.03});
+  }
+}
 
-  // In-UI confirmation modal
-  function confirmModal(message = "Are you sure?", yesCb, noCb = () => {}) {
-    const modal = document.getElementById("confirm-modal");
-    modal.querySelector('.modal-text').innerText = message;
-    modal.classList.remove('hidden');
+/* UI + data logic (complete, no omissions) */
+(() => {
+  const menu = document.getElementById('admin-menu');
+  const container = document.getElementById('menuContainer');
+  const overlay = document.getElementById('menuOverlay');
+  const closeBtn = document.getElementById('closeBtn');
+  const tabButtons = document.querySelectorAll('.tab');
+  const adminTab = document.getElementById('admin-tools-tab');
+  const reportsTab = document.getElementById('reports-tab');
+  const notificationContainer = document.getElementById('notification-container');
 
-    const yesBtn = document.getElementById("confirm-yes");
-    const noBtn  = document.getElementById("confirm-no");
+  // demo data used when not running inside FiveM
+  let demoPlayers = [
+    { id: 11, name: 'Alice', discord: 'Alice#001' },
+    { id: 22, name: 'Bob', discord: 'Bob#2222' },
+    { id: 33, name: 'Gregor', discord: '' }
+  ];
+  let demoDepts = [
+    { department: 'Police', paycheck: 800, discordid: '1234567890' },
+    { department: 'EMS', paycheck: 650, discordid: '9876543210' }
+  ];
 
-    const cleanup = () => {
-      yesBtn.removeEventListener('click', onYes);
-      noBtn.removeEventListener('click', onNo);
-      modal.classList.add('hidden');
-    };
+  let selectedId = null;
+  let selectedPlayerDiscord = null;
+  let currentReportsFilter = 'all';
+  let departments = [];
 
-    function onYes() { cleanup(); yesCb(); }
-    function onNo()  { cleanup(); noCb(); }
+  // Ensure global storages exist
+  window.pendingScreenshots = window.pendingScreenshots || {}; // id -> dataUrl (screenshots received while item not present)
+  window.currentReports = window.currentReports || {};         // id -> report object (latest known)
 
-    yesBtn.addEventListener('click', onYes);
-    noBtn.addEventListener('click', onNo);
+  // mini popup container (top center)
+  const miniPopupContainer = document.createElement('div');
+  miniPopupContainer.id = 'mini-popup-container';
+  miniPopupContainer.style.position = 'fixed';
+  miniPopupContainer.style.left = '50%';
+  miniPopupContainer.style.top = '18px';
+  miniPopupContainer.style.transform = 'translateX(-50%)';
+  miniPopupContainer.style.width = 'min(420px, 92%)';
+  miniPopupContainer.style.display = 'flex';
+  miniPopupContainer.style.flexDirection = 'column';
+  miniPopupContainer.style.gap = '10px';
+  miniPopupContainer.style.zIndex = '1400';
+  miniPopupContainer.style.pointerEvents = 'none';
+  document.body.appendChild(miniPopupContainer);
+
+  // small notification dedupe map
+  const _recentNotif = {};
+  function _shouldShowNotification(key, ttl) {
+    ttl = ttl || 1200;
+    const now = Date.now();
+    if (_recentNotif[key] && (now - _recentNotif[key]) < ttl) return false;
+    _recentNotif[key] = now;
+    return true;
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
-    // Initial notifications
-    showNotification('Admin panel initialized', 'success', 'System Ready');
-    showNotification('Discord ID helper active', 'info', 'Feature Enabled');
+  function showMiniPopup(report) {
+    if (!report) return;
+    const id = report.id || 'unknown';
+    const reporter = report.reporterName || report.reporter || 'Unknown';
+    const target = report.targetName || report.target || 'Unknown';
+    const reason = report.reason || report.subject || '';
 
-    // Element refs
-    const menu       = document.getElementById('admin-menu');
-    const closeBtn   = document.getElementById('closeBtn');
-    const adminTab   = document.getElementById('admin-tools-tab');
-    const reportsTab = document.getElementById('reports-tab');
-    const tabButtons = document.querySelectorAll('.tab');
-    let selectedId = null;
-    let selectedPlayerDiscord = null;
-    let currentReportsFilter = 'all';
+    const el = document.createElement('div');
+    el.className = 'notification mini-popup';
+    el.style.pointerEvents = 'auto';
+    el.style.width = '100%';
+    el.style.maxWidth = '760px';
+    el.style.margin = '0 auto';
+    el.style.padding = '12px';
+    el.style.borderRadius = '12px';
+    el.style.display = 'flex';
+    el.style.alignItems = 'flex-start';
+    el.style.justifyContent = 'space-between';
+    el.style.gap = '12px';
+    el.style.background = 'linear-gradient(180deg, rgba(25,25,25,0.96), rgba(12,12,12,0.92))';
+    el.style.border = '1px solid rgba(255,255,255,0.03)';
+    el.style.boxShadow = '0 12px 36px rgba(2,6,23,0.75)';
 
-    function showError(msg) {
-      showNotification(msg, 'error', 'Error');
-    }
-
-    // Tab switching
-    tabButtons.forEach(tab => {
-      tab.addEventListener('click', () => {
-        tabButtons.forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-        if (tab.dataset.tab === 'admin') {
-          adminTab.classList.remove('hidden');
-          reportsTab.classList.add('hidden');
-        } else {
-          adminTab.classList.add('hidden');
-          reportsTab.classList.remove('hidden');
-          fetchReports();
-        }
-      });
-    });
-
-    // Close menu
-    function closeMenu() {
-      fetch(`https://${GetParentResourceName()}/closeMenu`, { method: 'POST' })
-        .finally(() => menu.classList.add('hidden'));
-    }
-    closeBtn.addEventListener('click', closeMenu);
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
-
-    // NUI listener
-    window.addEventListener('message', event => {
-      const d = event.data;
-      switch (d.action) {
-        case 'openMenu':
-          menu.classList.remove('hidden');
-          fetchPlayers();
-          fetchDepartments();
-          showNotification('Admin panel opened', 'success');
-          break;
-        case 'loadDepartments':
-          renderDepartments(d.departments || []);
-          break;
-        case 'loadReports':
-          renderReports(Object.values(d.reports || {}));
-          break;
-        case 'newReport':
-          prependReportToUI(d.report);
-          showNotification(`New report from ${d.report.reporterName}`, 'warning', 'New Report');
-          break;
-        case 'updateReport': {
-          const item = document.querySelector(`#reports-list li[data-id="${d.id}"]`);
-          if (item) {
-            item.classList.replace('pending','resolved');
-            const btn = item.querySelector('.report-btn.resolve');
-            if (btn) btn.remove();
-            showNotification(`Report #${d.id} resolved`, 'success', 'Report Resolved');
-            filterReports();
-          }
-          break;
-        }
-        case 'removeReport': {
-          const li = document.querySelector(`#reports-list li[data-id="${d.id}"]`);
-          if (li) li.remove();
-          showNotification(`Report #${d.id} deleted`, 'warning', 'Report Removed');
-          break;
-        }
-        case 'closeMenu':
-          closeMenu();
-          break;
-      }
-    });
-
-    // ---- Fetchers ----
-    function fetchPlayers() {
-      fetch(`https://${GetParentResourceName()}/getPlayers`, { method: 'POST' })
-        .then(r => r.json())
-        .then(data => {
-          const ul = document.getElementById('players');
-          ul.innerHTML = '';
-          data.players.forEach(p => {
-            const li = document.createElement('li');
-            li.dataset.id = p.id;
-            li.dataset.discord = p.discord || '';
-            li.innerHTML = `
-              <span>${p.name}</span>
-              <span class="player-id">${p.id}</span>
-              <span class="player-discord">${p.discord ? p.discord.slice(0,6)+'...' : 'N/A'}</span>
-            `;
-            li.addEventListener('click', () => {
-              document.querySelectorAll('#players li').forEach(x => x.classList.remove('selected'));
-              li.classList.add('selected');
-              selectedId = p.id;
-              selectedPlayerDiscord = p.discord || '';
-              showNotification(`Selected player: ${p.name} (ID: ${p.id})`, 'success', 'Player Selected');
-            });
-            ul.appendChild(li);
-          });
-        })
-        .catch(err => showError('Failed to fetch players: ' + err.message));
-    }
-
-    function fetchDepartments() {
-      const ul = document.getElementById('departments');
-      ul.innerHTML = '<li class="loading">Loading departments…</li>';
-      fetch(`https://${GetParentResourceName()}/getDepartments`, { method: 'POST' })
-        .then(r => {
-          if (!r.ok) throw new Error(r.statusText);
-          return r.json();
-        })
-        .then(data => {
-          renderDepartments(data.departments || []);
-        })
-        .catch(err => {
-          showError('Could not load departments: ' + err.message);
-          ul.innerHTML = '<li class="error">Failed to load.</li>';
-        });
-    }
-
-    function fetchReports() {
-      fetch(`https://${GetParentResourceName()}/adminOpenedMenu`, { method: 'POST' })
-        .catch(err => showError('Could not load reports: ' + err.message));
-    }
-
-    // ---- Unified Player Action Buttons ----
-    const actionButtons = document.querySelectorAll('.buttons button[data-action]');
-    actionButtons.forEach(btn => {
-      btn.addEventListener('click', () => {
-        const action = btn.dataset.action;
-        if (!selectedId) {
-          return showNotification('Select a player first', 'error');
-        }
-
-        const actionLabel = action
-          .replace(/([A-Z])/g, ' $1')
-          .replace(/^./, str => str.toUpperCase());
-
-        confirmModal(
-          `Are you sure you want to ${actionLabel.toLowerCase()} player ${selectedId}?`,
-          () => {
-            const payload = { target: selectedId };
-            if (action === 'kick') payload.reason = 'Kicked by admin';
-
-            fetch(`https://${GetParentResourceName()}/${action}`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload)
-            })
-            .then(() => {
-              showNotification(
-                `${actionLabel} successful for player ${selectedId}`,
-                'success',
-                actionLabel
-              );
-            })
-            .catch(err => {
-              showNotification(
-                `${actionLabel} failed: ${err.message}`,
-                'error',
-                actionLabel
-              );
-            });
-          }
-        );
-      });
-    });
-
-    // ---- Render Departments ----
-    function renderDepartments(depts) {
-      const ul = document.getElementById('departments');
-      ul.innerHTML = '';
-      if (!depts.length) {
-        ul.innerHTML = '<li class="no-depts">No departments.</li>';
-        return;
-      }
-      depts.forEach(d => {
-        const li = document.createElement('li');
-        li.className = 'dept-item';
-        li.innerHTML = `
-          <div class="dept-info">
-            <div class="dept-details">
-              <div class="dept-name">${d.department}</div>
-              <div class="dept-meta">
-                <span><i class="fas fa-money-bill-wave"></i> $${d.paycheck}</span>
-                <span><i class="fab fa-discord"></i> ${d.discordid}</span>
-              </div>
-            </div>
-            <div class="dept-actions">
-              <button class="dept-btn edit"><i class="fas fa-edit"></i></button>
-              <button class="dept-btn delete"><i class="fas fa-trash"></i></button>
-            </div>
+    el.innerHTML = `
+      <div style="display:flex;gap:12px;align-items:flex-start;flex:1;min-width:0">
+        <div style="width:36px;display:grid;place-items:center;">
+          <i class="fas fa-triangle-exclamation" style="
+            color: rgb(250,204,21);
+            font-size:20px;
+            filter: drop-shadow(0 4px 14px rgba(250,204,21,0.28)) drop-shadow(0 2px 6px rgba(250,204,21,0.18));
+          "></i>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;color:#ffd66b;margin-bottom:6px">New report #${escapeHtml(String(id))} — Attention</div>
+          <div style="font-size:13px;color:rgba(255,255,255,0.9);margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+            <strong>${escapeHtml(reporter)}</strong> → <span>${escapeHtml(target)}</span>
           </div>
-          <div class="edit-form">
-            <div class="form-group">
-              <label>Department Name</label>
-              <input type="text" class="form-control" value="${d.department}" disabled>
-            </div>
-            <div class="form-row">
-              <div class="form-group">
-                <label>Paycheck Amount</label>
-                <input type="number" class="form-control paycheck-input" value="${d.paycheck}" min="0">
-              </div>
-              <div class="form-group">
-                <label>Discord Role ID</label>
-                <div class="discord-input-container">
-                  <input type="text" class="form-control discord-input" value="${d.discordid}" placeholder="Discord Role ID">
-                  <button class="use-player-discord" title="Use selected player's Discord ID"><i class="fas fa-user"></i></button>
-                </div>
-              </div>
-            </div>
-            <div class="form-footer">
-              <button class="btn btn-outline cancel-edit">Cancel</button>
-              <button class="btn btn-primary save-dept">Save Changes</button>
-            </div>
-          </div>
-        `;
-
-        // Edit button
-        li.querySelector('.dept-btn.edit').addEventListener('click', () => {
-          li.classList.add('editing');
-        });
-
-        // Delete button
-        li.querySelector('.dept-btn.delete').addEventListener('click', () => {
-          confirmModal(`Delete department "${d.department}"?`, () => {
-            console.log('[ADMIN DEBUG] Deleting department:', d.department);
-            fetch(`https://${GetParentResourceName()}/removeDepartment`, {
-              method: 'POST',
-              headers: {'Content-Type':'application/json'},
-              body: JSON.stringify({ department: d.department, discordid: d.discordid })
-            })
-
-            .then(resp => {
-              if (!resp.ok) throw new Error(resp.statusText);
-              showNotification(`Deleted "${d.department}"`, 'success', 'Department Removed');
-              return fetchDepartments();
-            })
-            .catch(err => {
-              console.error('[ADMIN DEBUG] Delete failed:', err);
-              showError(`Failed to delete: ${err.message}`);
-            });
-          });
-        });
-
-        // Cancel edit
-        li.querySelector('.cancel-edit').addEventListener('click', () => {
-          li.classList.remove('editing');
-        });
-
-        // Save changes
-        li.querySelector('.save-dept').addEventListener('click', () => {
-          const paycheck = li.querySelector('.paycheck-input').value;
-          const discord  = li.querySelector('.discord-input').value.trim();
-          if (!paycheck || isNaN(paycheck) || paycheck < 0)
-            return showNotification('Enter a valid paycheck', 'error', 'Validation Error');
-          if (!discord)
-            return showNotification('Discord ID is required', 'error', 'Validation Error');
-
-          fetch(`https://${GetParentResourceName()}/modifyDepartment`, {
-            method: 'POST',
-            headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({ department: d.department, paycheck: paycheck, discordid: discord })
-          })
-          .then(resp => {
-            if (!resp.ok) throw new Error(resp.statusText);
-            showNotification(`Updated "${d.department}"`, 'success', 'Department Updated');
-            li.classList.remove('editing');
-            return fetchDepartments();
-          })
-          .catch(err => showError(`Update failed: ${err.message}`));
-        });
-
-        // Use selected player's Discord ID
-        li.querySelector('.use-player-discord').addEventListener('click', () => {
-          if (!selectedPlayerDiscord) return showNotification('No player selected', 'warning', 'Action Required');
-          li.querySelector('.discord-input').value = selectedPlayerDiscord;
-          showNotification('Discord ID applied from selected player', 'success');
-        });
-
-        ul.appendChild(li);
-      });
-    }
-
-    // ---- Render Reports & Actions ----
-    function buildReportLI(r) {
-      const li = document.createElement('li');
-      li.className = `report-item ${r.resolved ? 'resolved' : 'pending'}`;
-      li.dataset.id = r.id;
-      li.dataset.status = r.resolved ? 'resolved' : 'pending';
-      li.innerHTML = `
-        <div class="report-header">
-          <div class="report-title">Report #${r.id}</div>
-          <div class="report-details">
-            <span><i class="fas fa-user"></i> ${r.reporterName} (ID: ${r.reporterId})</span>
-            <span><i class="fas fa-user"></i> ${r.targetName} (ID: ${r.targetId})</span>
-            <span><i class="fas fa-clock"></i> ${r.time}</span>
-          </div>
-          <div class="report-actions">
-            ${!r.resolved ? '<button class="report-btn resolve"><i class="fas fa-check"></i> Resolve</button>' : ''}
-            <button class="report-btn delete"><i class="fas fa-trash"></i> Delete</button>
-            <button class="report-btn teleport"><i class="fas fa-location-arrow"></i> Teleport</button>
+          <div style="font-size:12px;color:rgba(255,255,255,0.75);max-height:44px;overflow:hidden;text-overflow:ellipsis">
+            ${escapeHtml(reason)}
           </div>
         </div>
-        <div class="report-content">
-          <div class="report-reason">${r.reason}</div>
+      </div>
+
+      <div style="display:flex;flex-direction:row;gap:8px;align-items:center;margin-left:12px">
+        <button class="mini-open glow-button" style="padding:.45rem .65rem;border-radius:8px;font-size:13px">Open</button>
+        <button class="mini-dismiss glow-button" style="padding:.35rem .6rem;border-radius:8px;font-size:12px">Dismiss</button>
+      </div>
+    `;
+
+    miniPopupContainer.prepend(el);
+    requestAnimationFrame(()=> el.classList.add('show'));
+    playSound('click');
+
+    const autoT = setTimeout(() => { closeMini(el); }, 8000);
+    function closeMini(node) {
+      if (!node) return;
+      node.classList.remove('show');
+      setTimeout(() => node.remove(), 320);
+      clearTimeout(autoT);
+    }
+
+    el.querySelector('.mini-open').addEventListener('click', () => {
+      playSound('open');
+      try {
+        if (typeof GetParentResourceName !== 'undefined') {
+          fetch(`https://${GetParentResourceName()}/openMenu`, { method: 'POST' }).catch(()=>{});
+        } else {
+          if (typeof openAdminMenu === 'function') openAdminMenu();
+        }
+      } catch(e){
+        if (typeof openAdminMenu === 'function') openAdminMenu();
+      }
+      closeMini(el);
+    });
+
+    el.querySelector('.mini-dismiss').addEventListener('click', () => {
+      playSound('click');
+      closeMini(el);
+    });
+  }
+
+  function openMenu() {
+    menu.classList.remove('hidden'); menu.classList.add('modal-open');
+    menu.setAttribute('aria-hidden','false'); playSound('open');
+    setActiveTab(document.querySelector('.tab[data-tab="admin"]'));
+    fetchPlayers(); fetchDepartments();
+  }
+  function closeMenu() {
+    playSound('close'); menu.classList.remove('modal-open'); menu.setAttribute('aria-hidden','true');
+    setTimeout(()=> menu.classList.add('hidden'), 260);
+    try{ fetch(`https://${GetParentResourceName()}/closeMenu`,{method:'POST'}).catch(()=>{}); } catch(e){}
+  }
+  window.openAdminMenu = openMenu; window.closeAdminMenu = closeMenu;
+
+  function setActiveTab(btn){
+    tabButtons.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    if (btn.dataset.tab === 'admin') { adminTab.classList.remove('hidden'); reportsTab.classList.add('hidden'); }
+    else { adminTab.classList.add('hidden'); reportsTab.classList.remove('hidden'); fetchReports(); }
+    playSound('click');
+  }
+  tabButtons.forEach(btn => btn.addEventListener('click', ()=> setActiveTab(btn)));
+
+  closeBtn.addEventListener('click', closeMenu);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
+
+  // enhanced showNotification with dedupe
+  window.showNotification = function(message, type='success', title=null, duration=3600){
+    const key = (type||'') + '|' + (message||'');
+    if (!_shouldShowNotification(key, 1200)) return;
+
+    const el = document.createElement('div'); el.className='notification';
+    el.innerHTML = `<div style="width:28px;display:grid;place-items:center;">${ type==='success'?'<i class="fas fa-circle-check text-emerald-400"></i>' : type==='error'?'<i class="fas fa-circle-exclamation text-rose-400"></i>' : '<i class="fas fa-info-circle text-sky-400"></i>' }</div>
+      <div style="flex:1;">${title?`<div style="font-weight:600;margin-bottom:4px">${title}</div>`:''}<div style="font-size:13px;color:rgba(255,255,255,0.75)">${message}</div></div>
+      <button class="close-btn" style="background:none;border:none;color:rgba(255,255,255,0.6);font-size:18px;">&times;</button>`;
+    notificationContainer.appendChild(el); requestAnimationFrame(()=> el.classList.add('show'));
+    if (type==='success') playSound('success'); else if (type==='error') playSound('error'); else playSound('click');
+    const t = setTimeout(()=>{ el.classList.remove('show'); setTimeout(()=> el.remove(),320); }, duration);
+    el.querySelector('.close-btn').addEventListener('click', ()=> { clearTimeout(t); el.classList.remove('show'); setTimeout(()=> el.remove(),320); });
+  };
+
+  // Request players from client-side (via resource endpoint)
+  function fetchPlayers(){
+    try {
+      if (typeof GetParentResourceName !== 'undefined') {
+        fetch(`https://${GetParentResourceName()}/getPlayers`, { method:'POST' })
+          .then(r => r.json())
+          .then(data => renderPlayers(data.players || []))
+          .catch(err => { renderPlayers(demoPlayers); showNotification('Failed to fetch players: ' + err.message,'error'); });
+        return;
+      }
+    } catch(e){}
+    renderPlayers(demoPlayers);
+  }
+
+  function renderPlayers(list){
+    const ul = document.getElementById('players'); ul.innerHTML = '';
+    if (!list || !list.length) { ul.innerHTML = '<li class="text-sm muted">No players.</li>'; return; }
+    list.forEach(p=>{
+      const li = document.createElement('li');
+      li.className = 'flex items-center justify-between gap-2 px-3 py-2 rounded-lg';
+      li.style.border = '1px solid rgba(255,255,255,0.02)';
+      li.style.background = 'rgba(255,255,255,0.01)';
+      li.dataset.id = p.id;
+      li.dataset.discord = p.discord || '';
+      li.innerHTML = `<div class="truncate"><span class="player-name font-semibold mr-2">${escapeHtml(p.name)}</span></div>
+                      <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="font-size:12px;padding:6px;border-radius:8px;background:rgba(255,255,255,0.02)">${escapeHtml(String(p.id))}</span>
+                        <span style="font-size:12px;color:rgba(255,255,255,0.6)">${p.discord?escapeHtml(String(p.discord)):'N/A'}</span>
+                      </div>`;
+      li.addEventListener('click', ()=> {
+        document.querySelectorAll('#players li').forEach(x => x.classList.remove('player-selected'));
+        li.classList.add('player-selected');
+        selectedId = p.id;
+        selectedPlayerDiscord = p.discord || '';
+        showNotification(`Selected player: ${p.name} (ID: ${p.id})`,'success','Player Selected');
+        playSound('click');
+      });
+      ul.appendChild(li);
+    });
+  }
+
+  async function fetchDepartments(){
+    try {
+      if (typeof GetParentResourceName !== 'undefined') {
+        const res = await fetch(`https://${GetParentResourceName()}/getDepartments`, { method:'POST' });
+        if (!res.ok) throw new Error(res.statusText);
+        const data = await res.json();
+        departments = data.departments || [];
+        renderDepartments(departments);
+        return;
+      }
+    } catch(err) {
+      showNotification('Could not load departments: ' + (err.message||err),'error');
+    }
+    departments = demoDepts.slice();
+    renderDepartments(departments);
+  }
+
+  function renderDepartments(depts){
+    const ul = document.getElementById('departments'); ul.innerHTML = '';
+    if (!depts || !depts.length) { ul.innerHTML = '<li class="text-sm muted">No departments.</li>'; return; }
+    depts.forEach(d=>{
+      const li = document.createElement('li'); li.className = 'dept-item glow-card p-4 rounded-xl';
+      li.style.display='flex'; li.style.justifyContent='space-between'; li.style.alignItems='flex-start';
+      li.innerHTML = `
+        <div style="min-width:0;">
+          <div class="dept-name" style="font-weight:700;color:#cfeffd">${escapeHtml(d.department)}</div>
+          <div style="margin-top:8px;font-size:13px;color:rgba(255,255,255,0.7);display:flex;gap:8px;flex-wrap:wrap">
+            <div class="glow-accent">${d.paycheck ? '$' + escapeHtml(String(d.paycheck)) : '—'}</div>
+            <div class="glow-accent">${d.discordid ? escapeHtml(String(d.discordid)) : 'No role'}</div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end;">
+          <div style="display:flex;gap:8px;">
+            <button class="dept-edit glow-button" title="Edit"><i class="fas fa-edit"></i></button>
+            <button class="dept-delete glow-button" title="Delete"><i class="fas fa-trash"></i></button>
+          </div>
+          <div class="edit-form hidden" style="width:360px;margin-top:8px;">
+            <div style="display:flex;gap:8px;">
+              <input class="form-pay glow-input" type="number" min="0" placeholder="Paycheck" value="${escapeHtml(d.paycheck||'')}" style="flex:0 0 120px;"/>
+              <input class="form-discord glow-input" type="text" placeholder="Discord Role ID" value="${escapeHtml(d.discordid||'')}" style="flex:1;"/>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:8px;justify-content:flex-end;">
+              <button class="cancel-edit glow-button">Cancel</button>
+              <button class="save-dept bg-gradient-to-r from-sky-500 to-cyan-500 rounded-lg px-3 py-1 text-white">Save</button>
+            </div>
+          </div>
         </div>
       `;
+      const editBtn = li.querySelector('.dept-edit');
+      const delBtn = li.querySelector('.dept-delete');
+      const editForm = li.querySelector('.edit-form');
+      const cancelBtn = li.querySelector('.cancel-edit');
+      const saveBtn = li.querySelector('.save-dept');
 
-      if (!r.resolved) {
-        li.querySelector('.resolve').addEventListener('click', () => {
-          fetch(`https://${GetParentResourceName()}/resolveReport`, {
-            method: 'POST',
-            headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({ id: r.id })
-          }).catch(err => showError(`Resolve failed: ${err.message}`));
-        });
-      }
+      editBtn.addEventListener('click', ()=> {
+        li.classList.add('editing'); editForm.classList.remove('hidden'); editForm.scrollIntoView({behavior:'smooth', block:'nearest'});
+        playSound('click');
+      });
+      cancelBtn.addEventListener('click', ()=> { li.classList.remove('editing'); editForm.classList.add('hidden'); playSound('click'); });
 
-      li.querySelector('.delete').addEventListener('click', () => {
-        confirmModal(`Delete report #${r.id}?`, () => {
-          fetch(`https://${GetParentResourceName()}/deleteReport`, {
-            method: 'POST',
-            headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({ id: r.id })
-          }).catch(err => showError(`Delete failed: ${err.message}`));
+      delBtn.addEventListener('click', ()=> {
+        confirmModal(`Delete department "${d.department}"?`, async ()=>{
+          playSound('click');
+          try {
+            if (typeof GetParentResourceName !== 'undefined') {
+              await fetch(`https://${GetParentResourceName()}/removeDepartment`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ department: d.department, discordid: d.discordid }) });
+              showNotification(`Deleted "${d.department}"`,'success'); fetchDepartments();
+            } else {
+              departments = departments.filter(x => x.department !== d.department || x.discordid !== d.discordid);
+              renderDepartments(departments);
+              showNotification(`Deleted "${d.department}"`,'success');
+            }
+          } catch(err) { showNotification('Failed to delete: ' + (err.message||err),'error'); playSound('error'); }
         });
       });
 
-      li.querySelector('.teleport').addEventListener('click', () => {
-        fetch(`https://${GetParentResourceName()}/teleportReport`, {
-          method: 'POST',
-          headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({ target: r.targetId })
-        })
-        .then(() => showNotification(`Teleported to ${r.targetName}`, 'success'))
-        .catch(err => showError(`Teleport failed: ${err.message}`));
+      saveBtn.addEventListener('click', async ()=>{
+        const newPay = li.querySelector('.form-pay').value;
+        const newDisc = li.querySelector('.form-discord').value.trim();
+        if (!newPay || isNaN(newPay) || Number(newPay) < 0) { return showNotification('Enter a valid paycheck','error'); }
+        if (!newDisc) return showNotification('Discord ID required','error');
+        try {
+          if (typeof GetParentResourceName !== 'undefined') {
+            await fetch(`https://${GetParentResourceName()}/modifyDepartment`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ department: d.department, paycheck: newPay, discordid: newDisc }) });
+            showNotification(`Updated "${d.department}"`,'success'); fetchDepartments();
+          } else {
+            const idx = departments.findIndex(x => x.department === d.department);
+            if (idx >= 0) { departments[idx].paycheck = newPay; departments[idx].discordid = newDisc; renderDepartments(departments); showNotification(`Updated "${d.department}"`,'success'); }
+          }
+          playSound('success');
+        } catch(err) { showNotification('Update failed: ' + (err.message||err),'error'); playSound('error'); }
       });
 
-      return li;
-    }
+      ul.appendChild(li);
+    });
+  }
 
-    function renderReports(reports) {
-      const ul = document.getElementById('reports-list');
-      ul.innerHTML = '';
-      if (!reports.length) {
-        ul.innerHTML = '<li class="no-reports">No reports available</li>';
+  // Reports
+  function fetchReports(){
+    try {
+      if (typeof GetParentResourceName !== 'undefined') {
+        fetch(`https://${GetParentResourceName()}/getReports`, { method:'POST' })
+          .then(r => r.json())
+          .then(data => renderReports(data.reports || []))
+          .catch(err => { renderReports(demoReports); showNotification('Failed to fetch reports: ' + err.message,'error'); });
         return;
       }
-      reports.forEach(r => ul.appendChild(buildReportLI(r)));
-      filterReports();
+    } catch(e){}
+    renderReports(demoReports);
+  }
+
+  let demoReports = [
+    { id: 1, reporterName: "Alice", reason: "VDM by player 22", resolved: false, time: "" },
+    { id: 2, reporterName: "Bob", reason: "RDM by unknown", resolved: true, time: "" }
+  ];
+
+  function buildReportLI(r) {
+    const li = document.createElement('li');
+    li.className = 'glow-card p-3 rounded-lg';
+    li.dataset.id = r.id;
+    li.dataset.status = r.resolved ? 'resolved' : 'pending';
+
+    if (r.resolved) {
+      li.style.background = 'linear-gradient(90deg, rgba(16,185,129,0.12), rgba(16,185,129,0.06))';
+      li.style.border = '1px solid rgba(16,185,129,0.18)';
+    } else {
+      li.style.background = 'linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))';
+      li.style.border = '1px solid rgba(255,255,255,0.04)';
     }
 
-    function prependReportToUI(r) {
-      const ul = document.getElementById('reports-list');
-      const empty = ul.querySelector('.no-reports');
-      if (empty) empty.remove();
-      ul.prepend(buildReportLI(r));
-      filterReports();
+    let screenshotPart = '';
+    if (r.screenshotDataUrl) {
+      screenshotPart = `<img class="report-screenshot" src="${r.screenshotDataUrl}" alt="screenshot" />`;
+    } else {
+      screenshotPart = `<img class="report-screenshot hidden" src="" alt="screenshot" />`;
     }
 
-    function filterReports() {
-      document.querySelectorAll('.report-item').forEach(li => {
-        const st = li.dataset.status;
-        li.style.display = (currentReportsFilter === 'all' || currentReportsFilter === st)
-          ? 'block' : 'none';
-      });
-    }
+    li.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+        <div style="min-width:0">
+          <div style="font-weight:700;color:#cfeffd">Report #${escapeHtml(String(r.id))}</div>
+          <div style="font-size:13px;color:rgba(255,255,255,0.75); margin-top:6px;">
+            <strong>${escapeHtml(r.reporterName || r.reporter || 'Unknown')}</strong>
+            &nbsp;→&nbsp;
+            <span>${escapeHtml(r.targetName || r.target || 'Unknown')}</span>
+          </div>
+          <div style="margin-top:8px;color:rgba(255,255,255,0.7)">${escapeHtml(r.reason || r.subject || '')}</div>
+          <div style="margin-top:6px;font-size:12px;color:rgba(255,255,255,0.55)">${escapeHtml(r.time || '')}</div>
+          ${screenshotPart}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;">
+          ${!r.resolved ? '<button class="report-resolve glow-button px-3 py-1">Resolve</button>' : ''}
+          <button class="report-delete glow-button px-3 py-1">Delete</button>
+          <button class="report-teleport glow-button px-3 py-1">Teleport</button>
+        </div>
+      </div>
+    `;
 
-    // ---- Department Creation ----
-    document.getElementById('usePlayerDiscordBtn').addEventListener('click', () => {
-      if (!selectedId) {
-        return showNotification('Select a player first','error','Action Required');
-      }
-      SendNUIMessage({
-        action: 'requestDiscord',
-        id: selectedId
-      });
+    const resolveBtn = li.querySelector('.report-resolve');
+    const deleteBtn  = li.querySelector('.report-delete');
+    const tpBtn      = li.querySelector('.report-teleport');
+
+    if (resolveBtn) resolveBtn.addEventListener('click', () => {
+      if (typeof GetParentResourceName === 'undefined') return showNotification('This action requires server', 'error');
+      fetch(`https://${GetParentResourceName()}/resolveReport`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ id: r.id })
+      })
+      .then(()=> showNotification(`Resolved report #${r.id}`,'success'))
+      .catch(()=> showNotification('Resolve failed','error'));
     });
 
-    document.getElementById('createDeptBtn').addEventListener('click', () => {
-      const name = document.getElementById('deptNameInput').value.trim();
-      const pay  = document.getElementById('deptPayInput').value;
-      const disc = document.getElementById('deptDiscordInput').value.trim();
-      if (!name) return showNotification('Department name required','error');
-      if (!pay || isNaN(pay)||pay<0) return showNotification('Valid pay required','error');
-      if (!disc) return showNotification('Discord ID required','error');
+    if (deleteBtn) deleteBtn.addEventListener('click', () => {
+      if (typeof GetParentResourceName === 'undefined') return showNotification('This action requires server', 'error');
+      fetch(`https://${GetParentResourceName()}/deleteReport`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ id: r.id })
+      }).then(()=> showNotification(`Deleted report #${r.id}`,'success')).catch(()=> showNotification('Delete failed','error'));
+    });
 
-      fetch(`https://${GetParentResourceName()}/createDepartment`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ department: name, paycheck: pay, discordid: disc })
-      })
-      .then(() => {
-        showNotification(`Created "${name}"`, 'success');
-        document.getElementById('deptNameInput').value = '';
-        document.getElementById('deptPayInput').value = '';
-        document.getElementById('deptDiscordInput').value = '';
+    tpBtn.addEventListener('click', () => {
+      if (typeof GetParentResourceName === 'undefined') return showNotification('This action requires server', 'error');
+      fetch(`https://${GetParentResourceName()}/teleportReport`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ target: r.targetId || r.target })
+      }).then(()=> showNotification(`Teleporting to ${r.targetName || ''}`,'success')).catch(()=> showNotification('Teleport failed','error'));
+    });
+
+    return li;
+  }
+
+  function renderReports(raw) {
+    let list = Array.isArray(raw) ? raw : (raw ? Object.values(raw) : []);
+    const ul = document.getElementById('reports-list');
+    ul.innerHTML = '';
+    if (!list.length) {
+      ul.innerHTML = '<li class="text-sm muted">No reports.</li>';
+      return;
+    }
+    list.sort((a,b) => (b.id||0) - (a.id||0));
+    // Update currentReports map
+    window.currentReports = window.currentReports || {};
+    list.forEach(r => {
+      window.currentReports[r.id] = r;
+      ul.appendChild(buildReportLI(r));
+    });
+  }
+
+  function prependReportToUI(r) {
+    const ul = document.getElementById('reports-list');
+    // convert saved screenshot base64 to dataUrl if necessary
+    if (r.screenshot && !r.screenshotDataUrl && r.screenshotFiletype) {
+      const mime = (r.screenshotFiletype||'png').replace(/[^a-z0-9]/gi,'');
+      r.screenshotDataUrl = `data:image/${mime};base64,${r.screenshot}`;
+    }
+    // apply any pending screenshot received while UI was closed
+    if (window.pendingScreenshots && window.pendingScreenshots[r.id]) {
+      r.screenshotDataUrl = window.pendingScreenshots[r.id];
+      // we can optionally delete pending after applying:
+      delete window.pendingScreenshots[r.id];
+    }
+    // store in currentReports
+    window.currentReports = window.currentReports || {};
+    window.currentReports[r.id] = r;
+
+    const li = buildReportLI(r);
+    ul.prepend(li);
+  }
+
+  function updateReportInUI(reportId, resolved) {
+    const el = document.querySelector(`#reports-list li[data-id="${reportId}"]`);
+    if (!el) return;
+    el.dataset.status = resolved ? 'resolved' : 'pending';
+    const resolveBtn = el.querySelector('.report-resolve');
+    if (resolveBtn) resolveBtn.remove();
+
+    if (resolved) {
+      el.style.background = 'linear-gradient(90deg, rgba(16,185,129,0.12), rgba(16,185,129,0.06))';
+      el.style.border = '1px solid rgba(16,185,129,0.18)';
+      showNotification(`Report #${reportId} resolved`,`success`);
+    } else {
+      el.style.background = 'linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))';
+      el.style.border = '1px solid rgba(255,255,255,0.04)';
+      showNotification(`Report #${reportId} updated`,`success`);
+    }
+    // reflect in currentReports
+    window.currentReports = window.currentReports || {};
+    if (window.currentReports[reportId]) window.currentReports[reportId].resolved = resolved;
+  }
+
+  function removeReportFromUI(reportId) {
+    const el = document.querySelector(`#reports-list li[data-id="${reportId}"]`);
+    if (el) el.remove();
+    if (window.currentReports && window.currentReports[reportId]) delete window.currentReports[reportId];
+  }
+
+  // Single message listener (NUI -> page)
+  window.addEventListener('message', (ev) => {
+    const d = ev.data || {};
+    if (!d.action) return;
+    switch (d.action) {
+      case 'openMenu':
+        openMenu();
+        if (d.departments) { departments = d.departments; renderDepartments(departments); }
+        break;
+
+      case 'loadDepartments':
+        departments = d.departments || [];
+        renderDepartments(departments);
+        break;
+
+      case 'loadReports':
+        {
+          const reports = d.reports || [];
+          // convert server-provided screenshot fields to screenshotDataUrl, and merge any pendingScreenshots
+          reports.forEach(r => {
+            if (r.screenshot && r.screenshotFiletype && !r.screenshotDataUrl) {
+              const mime = (r.screenshotFiletype||'png').replace(/[^a-z0-9]/gi,'');
+              r.screenshotDataUrl = `data:image/${mime};base64,${r.screenshot}`;
+            }
+            // if we received a screenshot earlier while UI was closed, merge it
+            if (window.pendingScreenshots && window.pendingScreenshots[r.id]) {
+              r.screenshotDataUrl = window.pendingScreenshots[r.id];
+              // consume it so we don't keep growing the map
+              delete window.pendingScreenshots[r.id];
+            }
+            // update currentReports map
+            window.currentReports = window.currentReports || {};
+            window.currentReports[r.id] = r;
+          });
+          renderReports(reports);
+        }
+        break;
+
+      case 'newReport':
+        if (!document.querySelector(`#reports-list li[data-id="${d.report.id}"]`)) {
+          // apply pending screenshot if present
+          if (window.pendingScreenshots && window.pendingScreenshots[d.report.id]) {
+            d.report.screenshotDataUrl = window.pendingScreenshots[d.report.id];
+            delete window.pendingScreenshots[d.report.id];
+          }
+          prependReportToUI(d.report);
+        } else {
+          // existing item - update currentReports
+          window.currentReports = window.currentReports || {};
+          window.currentReports[d.report.id] = d.report;
+        }
+        showNotification(`New report #${d.report.id} from ${d.report.reporterName}`,'info','New Report');
+        if (menu.classList.contains('hidden')) {
+          showMiniPopup(d.report);
+        }
+        break;
+
+      case 'updateReport':
+        updateReportInUI(d.id, d.resolved);
+        break;
+
+      case 'removeReport':
+        removeReportFromUI(d.id);
+        showNotification(`Report #${d.id} removed`,'warning');
+        break;
+
+      case 'reportScreenshot':
+        (function(){
+          const id = d.id;
+          const dataUrl = d.image;
+          // update currentReports map so the data survives re-renders
+          window.currentReports = window.currentReports || {};
+          if (window.currentReports[id]) {
+            window.currentReports[id].screenshotDataUrl = dataUrl;
+          }
+
+          const li = document.querySelector(`#reports-list li[data-id="${id}"]`);
+          if (li) {
+            let img = li.querySelector('.report-screenshot');
+            if (!img) {
+              img = document.createElement('img');
+              img.className = 'report-screenshot';
+              // append to the main left column inside li (matches buildReportLI structure)
+              const left = li.querySelector('div');
+              if (left) left.appendChild(img);
+              else li.appendChild(img);
+            }
+            img.src = dataUrl;
+            img.classList.remove('hidden');
+          } else {
+            // no li currently in DOM - save for when the UI loads or report list is re-rendered
+            window.pendingScreenshots = window.pendingScreenshots || {};
+            window.pendingScreenshots[id] = dataUrl;
+          }
+        })();
+        break;
+
+      case 'playerDiscord':
+        if (d.target) {
+          const targetInt = Number(d.target);
+          if (selectedId === targetInt) {
+            document.getElementById('deptDiscordInput').value = d.discord || '';
+            if (d.discord) {
+              showNotification('Discord ID applied from selected player','success');
+            } else {
+              showNotification('Selected player has no Discord ID','warning');
+            }
+          }
+        }
+        break;
+
+      case 'closeMenu':
+        closeMenu();
+        break;
+
+      default:
+        break;
+    }
+  });
+
+  // create department handler
+  document.getElementById('createDeptBtn').addEventListener('click', async () => {
+    const name = document.getElementById('deptNameInput').value.trim();
+    const pay = document.getElementById('deptPayInput').value;
+    const disc = document.getElementById('deptDiscordInput').value.trim();
+    if (!name) return showNotification('Department name required','error');
+    if (!pay || isNaN(pay)||pay<0) return showNotification('Valid pay required','error');
+    if (!disc) return showNotification('Discord ID required','error');
+    playSound('create');
+    try {
+      if (typeof GetParentResourceName !== 'undefined') {
+        await fetch(`https://${GetParentResourceName()}/createDepartment`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ department: name, paycheck: pay, discordid: disc }) });
+        showNotification(`Created "${name}"`,'success');
         fetchDepartments();
-      })
-      .catch(err => showError(`Create failed: ${err.message}`));
-    });
+      } else {
+        departments.push({ department:name, paycheck:pay, discordid:disc });
+        renderDepartments(departments);
+        showNotification(`Created "${name}"`,'success');
+      }
+      document.getElementById('deptNameInput').value=''; document.getElementById('deptPayInput').value=''; document.getElementById('deptDiscordInput').value='';
+      playSound('success');
+    } catch(err) { showNotification('Create failed: ' + (err.message||err),'error'); playSound('error'); }
+  });
 
-    // ---- Money Operations ----
-    document.getElementById('moneyOp').addEventListener('change', function() {
-      document.getElementById('moneyExtra').classList.toggle('hidden', this.value !== 'transfer');
-    });
-    document.getElementById('execMoneyOp').addEventListener('click', () => {
-      if (!selectedId) return showNotification('Select a player first','error');
-      const op    = document.getElementById('moneyOp').value;
-      const amt   = document.getElementById('moneyAmt').value;
-      const extra = document.getElementById('moneyExtra').value;
-      if (amt === ''||isNaN(amt)||Number(amt)<0) return showNotification('Valid amount required','error');
-      if (op === 'transfer' && (!extra||isNaN(extra)||Number(extra)<=0)) return showNotification('Valid target ID','error');
+  // copy selected player's discord id into department field
+  document.getElementById('usePlayerDiscordBtn').addEventListener('click', ()=> {
+    if (!selectedId) return showNotification('Select a player first','error');
+    if (selectedPlayerDiscord) {
+      document.getElementById('deptDiscordInput').value = selectedPlayerDiscord;
+      showNotification('Discord ID applied from selected player','success'); playSound('click');
+    } else {
+      // ask the client script to request the server for this player's discord id
+      if (typeof GetParentResourceName !== 'undefined') {
+        playSound('click');
+        fetch(`https://${GetParentResourceName()}/requestPlayerDiscord`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ target: selectedId })
+        }).catch(()=>{});
+        showNotification('Requesting Discord ID from server...','info');
+      } else {
+        showNotification('Selected player has no Discord ID','warning');
+      }
+    }
+  });
 
-      fetch(`https://${GetParentResourceName()}/moneyOp`, {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ op, target: selectedId, amount: amt, extra: op==='transfer'?extra:undefined })
-      })
-      .then(() => showNotification(`$${amt} ${op} → ${selectedId}`,'success'))
-      .catch(err => showError(`Money op failed: ${err.message}`));
-    });
+  document.getElementById('moneyOp').addEventListener('change', function(){ document.getElementById('moneyExtra').classList.toggle('hidden', this.value!=='transfer'); });
 
-    // ---- Report Filters ----
-    document.querySelectorAll('.report-filter').forEach(f => {
-      f.addEventListener('click', () => {
-        document.querySelectorAll('.report-filter').forEach(x => x.classList.remove('active'));
-        f.classList.add('active');
-        currentReportsFilter = f.dataset.filter;
-        filterReports();
+  document.getElementById('execMoneyOp').addEventListener('click', ()=> {
+    const op = document.getElementById('moneyOp').value; const amt = document.getElementById('moneyAmt').value; const extra = document.getElementById('moneyExtra').value;
+    if (!selectedId) return showNotification('Select a player first','error');
+    if (amt === ''||isNaN(amt)||Number(amt)<0) return showNotification('Valid amount required','error');
+    if (op === 'transfer' && (!extra||isNaN(extra)||Number(extra)<=0)) return showNotification('Valid target ID','error');
+    playSound('click');
+    try {
+      if (typeof GetParentResourceName !== 'undefined') {
+        fetch(`https://${GetParentResourceName()}/moneyOp`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ op, target: selectedId, amount: amt, extra: op==='transfer'?extra:undefined }) })
+          .then(()=> showNotification(`$${amt} ${op} → ${selectedId}`,'success')).catch(err=> showNotification(`Money op failed: ${err.message}`,'error'));
+      } else {
+        showNotification(`(demo) $${amt} ${op} → ${selectedId}`,'success');
+      }
+    } catch(e){ showNotification('Money op failed','error'); }
+  });
+
+  function confirmModal(message = "Are you sure?", yesCb, noCb = ()=>{}) {
+    const modal = document.getElementById('confirm-modal'); modal.classList.remove('hidden');
+    modal.querySelector('p').innerText = message;
+    const yes = document.getElementById('confirm-yes'); const no = document.getElementById('confirm-no');
+    function cleanup(){ yes.removeEventListener('click', onYes); no.removeEventListener('click', onNo); modal.classList.add('hidden'); }
+    function onYes(){ cleanup(); yesCb(); }
+    function onNo(){ cleanup(); noCb(); }
+    yes.addEventListener('click', onYes); no.addEventListener('click', onNo);
+  }
+
+  // action buttons
+  document.querySelectorAll('.action-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const action = btn.dataset.action; playSound('click');
+      confirmModal(`Are you sure you want to ${action} player ${selectedId || '(no selected player)'}?`, ()=>{
+        if (!selectedId) return showNotification('Select a player first','error');
+        try {
+          if (typeof GetParentResourceName !== 'undefined') {
+            const payload = { target: selectedId };
+            if (action === 'kick') payload.reason = 'Kicked by admin';
+            if (action === 'ban') payload.reason = 'Banned by admin';
+            fetch(`https://${GetParentResourceName()}/${action}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) })
+              .then(()=> showNotification(`${action} successful for player ${selectedId}`,'success')).catch(err=> showNotification(`${action} failed: ${err.message}`,'error'));
+          } else {
+            showNotification(`(demo) ${action} → ${selectedId}`,'success');
+          }
+        } catch(e) { showNotification(`${action} failed: ${e.message}`,'error'); }
       });
     });
   });
+
+  document.querySelectorAll('.report-filter').forEach(f=>{
+    f.addEventListener('click', ()=> {
+      document.querySelectorAll('.report-filter').forEach(x=> x.classList.remove('glow-accent'));
+      f.classList.add('glow-accent'); currentReportsFilter = f.dataset.filter;
+    });
+  });
+
+  // drag / resize
+  (function(){
+    const header = document.getElementById('dragHeader'); const win = document.getElementById('menuContainer');
+    let dragging=false, startX=0, startY=0, origLeft=0, origTop=0;
+    header.addEventListener('mousedown', start); header.addEventListener('touchstart', start, {passive:false});
+    function start(e){
+      if (menu.classList.contains('hidden')) return;
+      dragging=true; startX = (e.touches?e.touches[0].clientX:e.clientX); startY = (e.touches?e.touches[0].clientY:e.clientY);
+      const rect = win.getBoundingClientRect(); origLeft = rect.left; origTop = rect.top;
+      document.addEventListener('mousemove', move); document.addEventListener('mouseup', stop);
+      document.addEventListener('touchmove', move, {passive:false}); document.addEventListener('touchend', stop);
+      win.style.position='fixed'; win.style.left = origLeft + 'px'; win.style.top = origTop + 'px';
+    }
+    function move(e){ if(!dragging) return; const clientX=(e.touches?e.touches[0].clientX:e.clientX); const clientY=(e.touches?e.touches[0].clientY:e.clientY); const dx=clientX-startX; const dy=clientY-startY; win.style.left = Math.max(8, Math.min(window.innerWidth - win.offsetWidth - 8, origLeft + dx)) + 'px'; win.style.top = Math.max(8, Math.min(window.innerHeight - win.offsetHeight - 8, origTop + dy)) + 'px'; }
+    function stop(){ dragging=false; document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', stop); document.removeEventListener('touchmove', move); document.removeEventListener('touchend', stop); }
+  })();
+
+  (function(){
+    const resizer = document.getElementById('resizer'); const win = document.getElementById('menuContainer');
+    let isResizing=false, startX=0, startY=0, startW=0, startH=0;
+    resizer.addEventListener('mousedown', start); resizer.addEventListener('touchstart', start, {passive:false});
+    function start(e){ e.preventDefault(); isResizing=true; startX=(e.touches?e.touches[0].clientX:e.clientX); startY=(e.touches?e.touches[0].clientY:e.clientY); startW=win.offsetWidth; startH=win.offsetHeight; document.addEventListener('mousemove', onmove); document.addEventListener('mouseup', stop); document.addEventListener('touchmove', onmove, {passive:false}); document.addEventListener('touchend', stop); }
+    function onmove(e){ if(!isResizing) return; const clientX=(e.touches?e.touches[0].clientX:e.clientX); const clientY=(e.touches?e.touches[0].clientY:e.clientY); let newW = startW + (clientX - startX); let newH = startH + (clientY - startY); newW = Math.max(520, Math.min(window.innerWidth - 40, newW)); newH = Math.max(320, Math.min(window.innerHeight - 40, newH)); win.style.width = newW + 'px'; win.style.height = newH + 'px'; }
+    function stop(){ isResizing=false; document.removeEventListener('mousemove', onmove); document.removeEventListener('mouseup', stop); document.removeEventListener('touchmove', onmove); document.removeEventListener('touchend', stop); }
+    resizer.addEventListener('dblclick', ()=> { win.style.width=''; win.style.height=''; });
+  })();
+
+  if (location.hash === '#open-admin') openMenu();
+
+  function escapeHtml(str){ if (str==null) return ''; return String(str).replace(/[&<>"']/g, s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[s]); }
+
+})();
 </script>
+
 </body>
 </html>
