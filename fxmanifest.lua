@@ -31,5 +31,6 @@ dependencies {
     'Az-Framework',
     'ox_lib',
     'oxmysql',
-    'screenshot-basic
+    'screenshot-basic'
 }
+
