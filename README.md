@@ -1,4 +1,8 @@
 # Az-Admin
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/d59f9fc8-efab-4812-897d-97da8726de53" />
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/17a937c7-1789-45fe-be98-4f55b1da464c" />
+
+
 
 ## 🛡️ Enhanced Admin Panel for Azure Framework
 
