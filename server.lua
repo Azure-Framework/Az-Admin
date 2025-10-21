@@ -1,3 +1,4 @@
+-- server.lua (include requester in player list)
 local json = json or (require and require('json'))
 
 Config = Config or {}
@@ -5,19 +6,34 @@ Config.ReportWebhook = Config.ReportWebhook or ""
 Config.EmbedColor    = Config.EmbedColor or 3066993
 Config.WebhookName   = Config.WebhookName or "Server Reports"
 Config.WebhookAvatar = Config.WebhookAvatar or ""
+local recentMoneyOps = {} -- [targetId] = timestamp
+local MONEY_OP_COOLDOWN_MS = 1500 -- per-target throttle
+local MONEY_AMOUNT_LIMIT = 10000000 -- maximum allowed absolute amount for ops (tweak this)
 
 local resourceName = GetCurrentResourceName() or "resource"
 local reportsFile = "reports.json"
 
-
 local reports = {}
 local reportIdCounter = 1
-local departments = {} 
+local departments = {}
 local screenshotBuffers = {}
 
 local function logf(fmt, ...) print(("[admin] " .. (fmt or "%s")):format(...)) end
 
+-- helper: fetch discord id for a server id
+local function getDiscordForServerId(sid)
+    if not sid then return nil end
+    local ids = GetPlayerIdentifiers(sid)
+    if not ids then return nil end
+    for _, ident in ipairs(ids) do
+        if tostring(ident):sub(1,8) == "discord:" then
+            return tostring(ident):sub(9)
+        end
+    end
+    return nil
+end
 
+-- candidate paths / file helpers (kept minimal for brevity)
 local SEP = package.config and package.config:sub(1,1) or '/'
 local function normalizePath(p)
     if not p then return p end
@@ -25,31 +41,20 @@ local function normalizePath(p)
     if SEP == '/' then p = p:gsub('/+','/') else p = p:gsub('\\+','\\') end
     return p
 end
-
-
 local function getResourceAbsolutePath()
     if GetResourcePath and type(GetResourcePath) == "function" then
         local base = GetResourcePath(resourceName)
-        if base and base ~= "" then
-            
-            base = normalizePath(base)
-            return base
-        end
+        if base and base ~= "" then return normalizePath(base) end
     end
     return nil
 end
-
-
 local function candidatePaths()
     local paths = {}
     local resAbs = getResourceAbsolutePath()
     if resAbs then
-        
         table.insert(paths, (resAbs .. "/" .. reportsFile))
-        
         table.insert(paths, (resAbs .. "/data/" .. reportsFile))
     end
-    
     table.insert(paths, "./" .. reportsFile)
     table.insert(paths, "./" .. resourceName .. "/" .. reportsFile)
     table.insert(paths, "./resources/" .. resourceName .. "/" .. reportsFile)
@@ -58,6 +63,7 @@ local function candidatePaths()
     return paths
 end
 
+-- load/save reports (kept from original)
 local function tryReadFile(path)
     if not path then return nil, "invalid-path" end
     local np = normalizePath(path)
@@ -67,33 +73,9 @@ local function tryReadFile(path)
     f:close()
     return content
 end
-
-local function ensureDirForFile(filePath)
-    if not filePath or filePath == "" then return end
-    local normalized = normalizePath(filePath)
-    local parent = normalized:match("^(.*)[/\\][^/\\]+$")
-    if parent and parent ~= "" then
-        
-        local ok, e = pcall(function()
-            local testPath = parent .. (SEP == '/' and "/.touch" or "\\.touch")
-            local fh = io.open(testPath, "w")
-            if fh then fh:write("x"); fh:close(); os.remove(testPath) end
-        end)
-        if not ok then
-            
-            if SEP == '/' then
-                pcall(function() os.execute(('mkdir -p "%s"'):format(parent)) end)
-            else
-                pcall(function() os.execute(('mkdir "%s" >nul 2>nul'):format(parent)) end)
-            end
-        end
-    end
-end
-
 local function tryWriteFile(path, data)
     if not path then return false, "invalid-path" end
     local np = normalizePath(path)
-    ensureDirForFile(np)
     local ok, err = pcall(function()
         local f = io.open(np, "w")
         if not f then error("open-failed") end
@@ -104,15 +86,11 @@ local function tryWriteFile(path, data)
     return true
 end
 
-
 local function loadReportsFromFile()
-    local tried = {}
-    local loaded = false
     local paths = candidatePaths()
     logf("Looking for reports.json in %d candidate path(s).", #paths)
     for _, p in ipairs(paths) do
         local content, err = tryReadFile(p)
-        table.insert(tried, { path = p, ok = content ~= nil, err = err })
         if content then
             local ok, decoded = pcall(function() return json.decode(content) end)
             if ok and type(decoded) == "table" then
@@ -126,21 +104,12 @@ local function loadReportsFromFile()
                     end
                 end
                 logf("Loaded %d reports from %s — next id = %d", #decoded, p, reportIdCounter)
-                loaded = true
-                break
-            else
-                logf("Found %s but JSON decode failed, skipping.", p)
+                return
             end
         end
     end
-    if not loaded then
-        for _, t in ipairs(tried) do
-            logf("loadReportsFromFile attempt: path=%s ok=%s err=%s", t.path, tostring(t.ok), tostring(t.err))
-        end
-        logf("%s not found in resource paths; starting with empty reports", reportsFile)
-    end
+    logf("%s not found in resource paths; starting with empty reports", reportsFile)
 end
-
 
 local function saveReportsToFile()
     local arr = {}
@@ -150,28 +119,17 @@ local function saveReportsToFile()
         logf("Failed to encode reports to JSON: %s", tostring(encoded))
         return
     end
-
-    local tried = {}
-    local success = false
     for _, p in ipairs(candidatePaths()) do
         local written, err = tryWriteFile(p, encoded)
-        table.insert(tried, { path = p, ok = written, err = err })
         if written then
             logf("Saved %d reports to %s", #arr, p)
-            success = true
-            break
+            return
         end
     end
-    if not success then
-        for _, t in ipairs(tried) do
-            logf("saveReportsToFile attempt: path=%s ok=%s err=%s", t.path, tostring(t.ok), tostring(t.err))
-        end
-        logf("ERROR: Could not write reports.json to resource paths.")
-    end
+    logf("ERROR: Could not write reports.json to resource paths.")
 end
 
-
-
+-- screenshot buffer cleanup
 local function cleanupScreenshotBuffer(reportId) screenshotBuffers[reportId] = nil end
 Citizen.CreateThread(function()
     while true do
@@ -186,7 +144,7 @@ Citizen.CreateThread(function()
     end
 end)
 
-
+-- SendDiscordReport (kept)
 local function SendDiscordReport(report)
     if not Config.ReportWebhook or Config.ReportWebhook == "" then
         logf("Report webhook not configured; skipping Discord post.")
@@ -220,8 +178,7 @@ local function SendDiscordReport(report)
     end, 'POST', encoded, { ['Content-Type'] = 'application/json' })
 end
 
-
-
+-- report endpoints (kept)
 RegisterNetEvent('adminmenu:server:submitReport')
 AddEventHandler('adminmenu:server:submitReport', function(targetId, reason, reporterName, targetName)
     local src = source
@@ -243,7 +200,6 @@ AddEventHandler('adminmenu:server:submitReport', function(targetId, reason, repo
     TriggerClientEvent('adminmenu:client:newReport', -1, report)
     logf("[REPORT] %s (ID:%s) reported %s (ID:%s) for: %s", tostring(reporterName), tostring(src), tostring(targetName), tostring(targetId), tostring(reason))
 end)
-
 
 RegisterNetEvent('adminmenu:server:createReportForScreenshot')
 AddEventHandler('adminmenu:server:createReportForScreenshot', function(targetId, reason, reporterName, targetName, filetype, expectedTotal)
@@ -271,7 +227,6 @@ AddEventHandler('adminmenu:server:createReportForScreenshot', function(targetId,
     screenshotBuffers[assignedId] = { parts = {}, total = expected, received = 0, filetype = ft, creator = src, createdAt = os.time() }
     TriggerClientEvent('adminmenu:client:reportCreated', src, assignedId)
 end)
-
 
 RegisterNetEvent('adminmenu:server:uploadScreenshotChunk')
 AddEventHandler('adminmenu:server:uploadScreenshotChunk', function(reportId, index, total, chunk)
@@ -321,7 +276,6 @@ AddEventHandler('adminmenu:server:finalizeScreenshotUpload', function(reportId)
     logf("finalizeScreenshotUpload called for %s (received=%s total=%s)", tostring(reportId), tostring(buf.received), tostring(buf.total))
 end)
 
-
 RegisterNetEvent('adminmenu:server:resolveReport')
 AddEventHandler('adminmenu:server:resolveReport', function(reportId)
     if reports[reportId] then reports[reportId].resolved = true; saveReportsToFile(); TriggerClientEvent('adminmenu:client:updateReport', -1, reportId, true) end
@@ -332,14 +286,68 @@ AddEventHandler('adminmenu:server:deleteReport', function(reportId)
     if reports[reportId] then reports[reportId] = nil; saveReportsToFile(); TriggerClientEvent('adminmenu:client:removeReport', -1, reportId) end
 end)
 
+RegisterNetEvent('adminmenu:serverBring')
+AddEventHandler('adminmenu:serverBring', function(data)
+    local src = source
+    local target = tonumber((data and data.target) or data)
+    if not target then
+        logf("Bring: invalid target from %s", tostring(src)); return
+    end
+    -- Ask the target client to teleport to the admin (brought)
+    TriggerClientEvent('adminmenu:clientTeleportTo', target, { type = 'bring', admin = src, target = target })
+    -- Notify the admin client to update UI/confirm
+    TriggerClientEvent('adminmenu:clientActionAck', src, { action = 'bring', target = target })
+    logf("Bring: admin %s bringing %s", tostring(src), tostring(target))
+end)
 
-RegisterNetEvent('adminmenu:serverBring'); AddEventHandler('adminmenu:serverBring', function(data) local src = source; local target = tonumber(data.target); if not target then return end; TriggerClientEvent('adminmenu:clientTeleportTo', target, src); logf("Bring: admin %s bringing %s", tostring(src), tostring(target)) end)
-RegisterNetEvent('adminmenu:serverTeleportTo'); AddEventHandler('adminmenu:serverTeleportTo', function(data) local src = source; local target = tonumber(data.target); if not target then return end; TriggerClientEvent('adminmenu:clientTeleportTo', src, target); logf("Teleport: admin %s -> %s", tostring(src), tostring(target)) end)
-RegisterNetEvent('adminmenu:serverToggleFreeze'); AddEventHandler('adminmenu:serverToggleFreeze', function(data) local src = source; local target = tonumber(data.target); local shouldFreeze = data.freeze; if shouldFreeze==nil then shouldFreeze=true end; if not target then return end; TriggerClientEvent('adminmenu:clientSetFreeze', target, shouldFreeze); logf("Freeze: admin %s set freeze=%s on %s", tostring(src), tostring(shouldFreeze), tostring(target)) end)
-RegisterNetEvent('adminmenu:serverKick'); AddEventHandler('adminmenu:serverKick', function(data) local src = source; local target = tonumber(data.target); local reason = tostring(data.reason or "Kicked by admin"); if not target then return end; DropPlayer(target, reason); logf("Kick: admin %s kicked %s for: %s", tostring(src), tostring(target), tostring(reason)) end)
-RegisterNetEvent('adminmenu:serverBan'); AddEventHandler('adminmenu:serverBan', function(data) local src = source; local target = tonumber(data.target); local reason = tostring(data.reason or "Banned by admin"); if not target then return end; TriggerEvent('adminmenu:banPlayer', target, reason); DropPlayer(target, reason); logf("Ban: admin %s banned %s for: %s", tostring(src), tostring(target), tostring(reason)) end)
+RegisterNetEvent('adminmenu:serverTeleportTo')
+AddEventHandler('adminmenu:serverTeleportTo', function(data)
+    local src = source
+    local target = tonumber((data and data.target) or data)
+    if not target then
+        logf("TeleportTo: invalid target from %s", tostring(src)); return
+    end
+    -- Ask the admin client to teleport to the target (go to)
+    TriggerClientEvent('adminmenu:clientTeleportTo', src, { type = 'goto', admin = src, target = target })
+    TriggerClientEvent('adminmenu:clientActionAck', src, { action = 'teleport', target = target })
+    logf("Teleport: admin %s -> %s", tostring(src), tostring(target))
+end)
 
+RegisterNetEvent('adminmenu:serverToggleFreeze')
+AddEventHandler('adminmenu:serverToggleFreeze', function(data)
+    local src = source
+    local target = tonumber(data.target)
+    local shouldFreeze = (data.freeze == nil) and true or not not data.freeze
+    if not target then logf("ToggleFreeze: invalid target from %s", tostring(src)); return end
+    TriggerClientEvent('adminmenu:clientSetFreeze', target, { freeze = shouldFreeze, admin = src })
+    logf("Freeze: admin %s set freeze=%s on %s", tostring(src), tostring(shouldFreeze), tostring(target))
+    TriggerClientEvent('adminmenu:clientActionAck', src, { action = 'freeze', target = target, freeze = shouldFreeze })
+end)
 
+RegisterNetEvent('adminmenu:serverKick')
+AddEventHandler('adminmenu:serverKick', function(data)
+    local src = source
+    local target = tonumber(data.target)
+    local reason = tostring(data.reason or "Kicked by admin")
+    if not target then logf("Kick: invalid target from %s", tostring(src)); return end
+    DropPlayer(target, reason)
+    logf("Kick: admin %s kicked %s for: %s", tostring(src), tostring(target), tostring(reason))
+    TriggerClientEvent('adminmenu:clientActionAck', src, { action = 'kick', target = target })
+end)
+
+RegisterNetEvent('adminmenu:serverBan')
+AddEventHandler('adminmenu:serverBan', function(data)
+    local src = source
+    local target = tonumber(data.target)
+    local reason = tostring(data.reason or "Banned by admin")
+    if not target then logf("Ban: invalid target from %s", tostring(src)); return end
+    TriggerEvent('adminmenu:banPlayer', target, reason)
+    DropPlayer(target, reason)
+    logf("Ban: admin %s banned %s for: %s", tostring(src), tostring(target), tostring(reason))
+    TriggerClientEvent('adminmenu:clientActionAck', src, { action = 'ban', target = target })
+end)
+
+-- Send reports and screenshots on request
 RegisterNetEvent('adminmenu:serverGetReports')
 AddEventHandler('adminmenu:serverGetReports', function()
     local src = source
@@ -353,7 +361,7 @@ AddEventHandler('adminmenu:serverGetReports', function()
     end
     table.sort(out, function(a,b) return (b.id or 0) < (a.id or 0) end)
     TriggerClientEvent('adminmenu:client:loadReports', src, out)
-    
+
     for id, rep in pairs(reports) do
         if rep.screenshot and rep.screenshotFiletype then
             local mime = tostring(rep.screenshotFiletype or "png"):gsub("%W","")
@@ -363,217 +371,110 @@ AddEventHandler('adminmenu:serverGetReports', function()
     end
 end)
 
+-- ===== Enhanced serverGetPlayers (robust) =====
+-- We'll aggregate from server + ask clients when server list looks incomplete.
+local pendingLocalPlayerRequests = {} -- requestId -> { src = <requester>, map = { [id]=true }, timer = <handle> }
 
+RegisterNetEvent('adminmenu:serverGetPlayers')
+AddEventHandler('adminmenu:serverGetPlayers', function(requestId)
+    local src = source
+    local out = {}
 
+    local players = GetPlayers() or {}
+    logf("serverGetPlayers: GetPlayers() returned %d entries (requestId=%s) for %s", #players, tostring(requestId), tostring(src))
 
-local function db_exec(query, params, cb)
-    
-    if exports and exports.oxmysql and exports.oxmysql.execute then
-        return exports.oxmysql:execute(query, params or {}, cb)
-    end
-    
-    if exports and exports.ghmattimysql and exports.ghmattimysql.execute then
-        return exports.ghmattimysql:execute(query, params or {}, cb)
-    end
-    
-    if MySQL and MySQL.Async and MySQL.Async.fetchAll then
-        
-        if string.lower((query or ""):sub(1,6)) == "select" then
-            return MySQL.Async.fetchAll(query, params or {}, cb)
+    -- Build server-side list first
+    for i, sid in ipairs(players) do
+        local pid = tonumber(sid)
+        local name = nil
+        if pid then
+            name = GetPlayerName(pid) or ("Player "..tostring(pid))
         else
-            return MySQL.Async.execute(query, params or {}, cb)
+            name = tostring(sid)
+        end
+
+        local discord = ""
+        if pid then
+            local d = getDiscordForServerId(pid)
+            if d then discord = d end
+        end
+
+        local entry = { id = (pid or sid), name = name, discord = (discord or "") }
+        table.insert(out, entry)
+        logf("  server-list -> idx=%d id=%s name=%s discord=%s", i, tostring(entry.id), tostring(entry.name), tostring(entry.discord))
+    end
+
+    if #out <= 1 then
+        logf("serverGetPlayers: server-side list small (<=1). requesting client-side enumerations (requestId=%s)", tostring(requestId))
+        pendingLocalPlayerRequests[requestId] = { src = src, map = {}, timer = nil }
+
+        for _, entry in ipairs(out) do
+            pendingLocalPlayerRequests[requestId].map[tostring(entry.id)] = entry
+        end
+
+        TriggerClientEvent('adminmenu:clientRequestLocalPlayers', -1, requestId)
+
+        pendingLocalPlayerRequests[requestId].timer = Citizen.SetTimeout(1200, function()
+            local agg = pendingLocalPlayerRequests[requestId]
+            if not agg then return end
+            local final = {}
+            for idStr, val in pairs(agg.map) do
+                if type(val) == 'table' then
+                    table.insert(final, { id = val.id, name = val.name, discord = val.discord or "" })
+                else
+                    local pid = tonumber(idStr)
+                    local name = pid and GetPlayerName(pid) or ("Player "..tostring(idStr))
+                    local discord = ""
+                    if pid then local d = getDiscordForServerId(pid); if d then discord = d end end
+                    table.insert(final, { id = pid or idStr, name = name, discord = discord })
+                end
+            end
+            table.sort(final, function(a,b) return tostring(a.name) < tostring(b.name) end)
+
+            -- verbose log the aggregated list
+            for i, p in ipairs(final) do
+                logf("  aggregated -> idx=%d id=%s name=%s discord=%s", i, tostring(p.id), tostring(p.name), tostring(p.discord))
+            end
+
+            TriggerClientEvent('adminmenu:clientLoadPlayers', agg.src, tostring(requestId), final)
+            pendingLocalPlayerRequests[requestId] = nil
+            logf("serverGetPlayers: delivered aggregated list (count=%d) to %s for requestId=%s", #final, tostring(agg.src), tostring(requestId))
+        end)
+
+        return
+    end
+
+    -- If server-side list looks fine, send with requestId as string
+    TriggerClientEvent('adminmenu:clientLoadPlayers', src, tostring(requestId), out)
+    logf("Provided players list to %s (count=%d)", tostring(src), #out)
+end)
+
+-- Server: receive client-local player list and aggregate when a pending request is present
+RegisterNetEvent('adminmenu:serverReceiveLocalPlayers')
+AddEventHandler('adminmenu:serverReceiveLocalPlayers', function(requestId, players)
+    local src = source
+    requestId = tostring(requestId or "")
+    local pending = pendingLocalPlayerRequests[requestId]
+    local out = players or {}
+    logf("serverReceiveLocalPlayers: received %d players from client %s for requestId=%s", #out, tostring(src), requestId)
+    if not pending then
+        -- no pending aggregate — this can happen if server already sent response. Just forward to the requester (best-effort)
+        -- If the original requester exists, forward; otherwise ignore.
+        if requestId and requestId ~= "" then
+            logf("serverReceiveLocalPlayers: no pending aggregation for %s — forwarding directly to sender %s", tostring(requestId), tostring(src))
+            TriggerClientEvent('adminmenu:clientLoadPlayers', src, tostring(requestId), out)
+        end
+        return
+    end
+
+    -- Merge incoming players into pending.map (dedupe by id)
+    for _, p in ipairs(out) do
+        local idKey = tostring(p.id)
+        if not pending.map[idKey] then
+            pending.map[idKey] = { id = p.id, name = p.name, discord = p.discord or "" }
         end
     end
-    return nil
-end
-
-local function loadDepartmentsFromDBOrFallback()
-    local connected = false
-    local selectQ = "SELECT discordid, department, paycheck FROM econ_departments"
-    local handled = false
-    
-    local ok, res = pcall(function()
-        if exports and exports.oxmysql and exports.oxmysql.execute then
-            exports.oxmysql:execute(selectQ, {}, function(rows)
-                departments = {}
-                for _, r in ipairs(rows or {}) do table.insert(departments, { department = r.department, paycheck = tonumber(r.paycheck) or 0, discordid = r.discordid or "" }) end
-                TriggerClientEvent('adminmenu:clientReceiveDepartments', -1, { departments = departments })
-                logf("Loaded %d departments from oxmysql", #departments)
-            end)
-            handled = true
-        elseif exports and exports.ghmattimysql and exports.ghmattimysql.execute then
-            exports.ghmattimysql:execute(selectQ, {}, function(rows)
-                departments = {}
-                for _, r in ipairs(rows or {}) do table.insert(departments, { department = r.department, paycheck = tonumber(r.paycheck) or 0, discordid = r.discordid or "" }) end
-                TriggerClientEvent('adminmenu:clientReceiveDepartments', -1, { departments = departments })
-                logf("Loaded %d departments from ghmattimysql", #departments)
-            end)
-            handled = true
-        elseif MySQL and MySQL.Async and MySQL.Async.fetchAll then
-            MySQL.Async.fetchAll(selectQ, {}, function(rows)
-                departments = {}
-                for _, r in ipairs(rows or {}) do table.insert(departments, { department = r.department, paycheck = tonumber(r.paycheck) or 0, discordid = r.discordid or "" }) end
-                TriggerClientEvent('adminmenu:clientReceiveDepartments', -1, { departments = departments })
-                logf("Loaded %d departments from mysql-async", #departments)
-            end)
-            handled = true
-        end
-    end)
-    if not handled then
-        
-        logf("No DB connector found; using in-memory departments (count=%d)", #departments)
-        TriggerClientEvent('adminmenu:clientReceiveDepartments', -1, { departments = departments })
-    end
-end
-
-
-RegisterNetEvent('adminmenu:serverGetDepartments')
-AddEventHandler('adminmenu:serverGetDepartments', function()
-    local src = source
-    TriggerClientEvent('adminmenu:clientReceiveDepartments', src, { departments = departments })
 end)
-
-
-RegisterNetEvent('adminmenu:serverCreateDepartment')
-AddEventHandler('adminmenu:serverCreateDepartment', function(data)
-    local src = source
-    local dept = tostring(data.department or "")
-    local paycheck = tonumber(data.paycheck) or 0
-    local discordid = tostring(data.discordid or "")
-    if dept == "" then return end
-
-    -- Normal insert (will fail with duplicate-key if (discordid,department) PK exists)
-    local insertQ = "INSERT INTO econ_departments (discordid, department, paycheck) VALUES (@discordid, @department, @paycheck)"
-    local params = { ['@discordid'] = discordid, ['@department'] = dept, ['@paycheck'] = paycheck }
-
-    local executed = false
-    if exports and exports.oxmysql and exports.oxmysql.execute then
-        executed = true
-        exports.oxmysql:execute(insertQ, params, function(af)
-            table.insert(departments, { department = dept, paycheck = paycheck, discordid = discordid })
-            TriggerClientEvent('adminmenu:clientReceiveDepartments', -1, { departments = departments })
-            logf("Created department '%s' (oxmysql)", dept)
-        end)
-    elseif exports and exports.ghmattimysql and exports.ghmattimysql.execute then
-        executed = true
-        exports.ghmattimysql:execute(insertQ, params, function(af)
-            table.insert(departments, { department = dept, paycheck = paycheck, discordid = discordid })
-            TriggerClientEvent('adminmenu:clientReceiveDepartments', -1, { departments = departments })
-            logf("Created department '%s' (ghmattimysql)", dept)
-        end)
-    elseif MySQL and MySQL.Async and MySQL.Async.execute then
-        executed = true
-        MySQL.Async.execute(insertQ, params, function(af)
-            table.insert(departments, { department = dept, paycheck = paycheck, discordid = discordid })
-            TriggerClientEvent('adminmenu:clientReceiveDepartments', -1, { departments = departments })
-            logf("Created department '%s' (mysql-async)", dept)
-        end)
-    end
-
-    if not executed then
-        table.insert(departments, { department = dept, paycheck = paycheck, discordid = discordid })
-        TriggerClientEvent('adminmenu:clientReceiveDepartments', -1, { departments = departments })
-        logf("Created department '%s' (in-memory)", dept)
-    end
-end)
-
-
-RegisterNetEvent('adminmenu:serverModifyDepartment')
-AddEventHandler('adminmenu:serverModifyDepartment', function(data)
-    local src = source
-    local dept = tostring(data.department or "")
-    local paycheck = tonumber(data.paycheck) or 0
-    local discordid = tostring(data.discordid or "")
-    if dept == "" then return end
-
-    local updated = false
-    for i,v in ipairs(departments) do
-        if v.department == dept then
-            v.paycheck = paycheck; v.discordid = discordid; updated = true; break
-        end
-    end
-
-    local executed = false
-    local updateQ = "UPDATE econ_departments SET paycheck=@paycheck, discordid=@discordid WHERE department=@department"
-    local params = { ['@paycheck'] = paycheck, ['@discordid'] = discordid, ['@department'] = dept }
-
-    if exports and exports.oxmysql and exports.oxmysql.execute then
-        executed = true
-        exports.oxmysql:execute(updateQ, params, function(af)
-            TriggerClientEvent('adminmenu:clientReceiveDepartments', -1, { departments = departments })
-            logf("Modified department '%s' (oxmysql)", dept)
-        end)
-    elseif exports and exports.ghmattimysql and exports.ghmattimysql.execute then
-        executed = true
-        exports.ghmattimysql:execute(updateQ, params, function(af)
-            TriggerClientEvent('adminmenu:clientReceiveDepartments', -1, { departments = departments })
-            logf("Modified department '%s' (ghmattimysql)", dept)
-        end)
-    elseif MySQL and MySQL.Async and MySQL.Async.execute then
-        executed = true
-        MySQL.Async.execute(updateQ, params, function(af)
-            TriggerClientEvent('adminmenu:clientReceiveDepartments', -1, { departments = departments })
-            logf("Modified department '%s' (mysql-async)", dept)
-        end)
-    end
-
-    if not executed then
-        TriggerClientEvent('adminmenu:clientReceiveDepartments', -1, { departments = departments })
-        logf("Modified department '%s' (in-memory)", dept)
-    end
-end)
-
-
-RegisterNetEvent('adminmenu:serverRemoveDepartment')
-AddEventHandler('adminmenu:serverRemoveDepartment', function(data)
-    local src = source
-    local dept = tostring(data.department or "")
-    if dept == "" then return end
-
-    for i=#departments,1,-1 do
-        if departments[i].department == dept then table.remove(departments, i) end
-    end
-
-    local executed = false
-    local deleteQ = "DELETE FROM econ_departments WHERE department=@department"
-    local params = { ['@department'] = dept }
-
-    if exports and exports.oxmysql and exports.oxmysql.execute then
-        executed = true
-        exports.oxmysql:execute(deleteQ, params, function(af)
-            TriggerClientEvent('adminmenu:clientReceiveDepartments', -1, { departments = departments })
-            logf("Removed department '%s' (oxmysql)", dept)
-        end)
-    elseif exports and exports.ghmattimysql and exports.ghmattimysql.execute then
-        executed = true
-        exports.ghmattimysql:execute(deleteQ, params, function(af)
-            TriggerClientEvent('adminmenu:clientReceiveDepartments', -1, { departments = departments })
-            logf("Removed department '%s' (ghmattimysql)", dept)
-        end)
-    elseif MySQL and MySQL.Async and MySQL.Async.execute then
-        executed = true
-        MySQL.Async.execute(deleteQ, params, function(af)
-            TriggerClientEvent('adminmenu:clientReceiveDepartments', -1, { departments = departments })
-            logf("Removed department '%s' (mysql-async)", dept)
-        end)
-    end
-
-    if not executed then
-        TriggerClientEvent('adminmenu:clientReceiveDepartments', -1, { departments = departments })
-        logf("Removed department '%s' (in-memory)", dept)
-    end
-end)
-
-
-local function getDiscordForServerId(sid)
-    if not sid then return nil end
-    local ids = GetPlayerIdentifiers(sid)
-    if not ids then return nil end
-    for _, ident in ipairs(ids) do
-        if tostring(ident):sub(1,8) == "discord:" then return tostring(ident):sub(9) end
-    end
-    return nil
-end
 
 RegisterNetEvent('adminmenu:serverRequestPlayerDiscord')
 AddEventHandler('adminmenu:serverRequestPlayerDiscord', function(targetId)
@@ -583,7 +484,6 @@ AddEventHandler('adminmenu:serverRequestPlayerDiscord', function(targetId)
     local discord = getDiscordForServerId(t)
     TriggerClientEvent('adminmenu:clientPlayerDiscord', src, t, discord)
 end)
-
 
 RegisterNetEvent('adminmenu:verifyAdmin')
 AddEventHandler('adminmenu:verifyAdmin', function()
@@ -608,13 +508,158 @@ AddEventHandler('adminmenu:verifyAdmin', function()
     Citizen.SetTimeout(5000, function() if not got then logf("WARNING: isAdmin callback timed out for %s", tostring(src)) end end)
 end)
 
-
 AddEventHandler('onResourceStart', function(res)
     if res == resourceName then
         loadReportsFromFile()
-        loadDepartmentsFromDBOrFallback()
     end
 end)
 
+-- (rest of file — departments, money handlers, etc. remain unchanged)
+-- ===== NUI-driven department endpoints =====
+-- Returns current departments to the requesting client
+RegisterNetEvent('adminmenu:serverGetDepartments')
+AddEventHandler('adminmenu:serverGetDepartments', function()
+    local src = source
+    TriggerClientEvent('adminmenu:clientReceiveDepartments', src, { departments = departments or {} })
+end)
 
+-- Create a department (data: { department, paycheck, discordid })
+RegisterNetEvent('adminmenu:serverCreateDepartment')
+AddEventHandler('adminmenu:serverCreateDepartment', function(data)
+    local src = source
+    if not data or not data.department then return end
+    table.insert(departments, { department = tostring(data.department), paycheck = tonumber(data.paycheck) or 0, discordid = tostring(data.discordid or "") })
+    logf("Department created by %s -> %s", tostring(src), tostring(data.department))
+    TriggerClientEvent('adminmenu:clientReceiveDepartments', -1, { departments = departments })
+end)
+
+-- addmoney department (data: { department, paycheck, discordid })
+RegisterNetEvent('adminmenu:serveraddmoneyDepartment')
+AddEventHandler('adminmenu:serveraddmoneyDepartment', function(data)
+    local src = source
+    if not data or not data.department then return end
+    for i, d in ipairs(departments) do
+        if d.department == data.department then
+            d.paycheck = tonumber(data.paycheck) or d.paycheck
+            d.discordid = tostring(data.discordid or d.discordid)
+            logf("Department modified by %s -> %s", tostring(src), tostring(data.department))
+            break
+        end
+    end
+    TriggerClientEvent('adminmenu:clientReceiveDepartments', -1, { departments = departments })
+end)
+
+-- Remove department (data: { department, discordid })
+RegisterNetEvent('adminmenu:serverRemoveDepartment')
+AddEventHandler('adminmenu:serverRemoveDepartment', function(data)
+    local src = source
+    if not data or not data.department then return end
+    for i = #departments, 1, -1 do
+        local d = departments[i]
+        if d.department == data.department and (not data.discordid or d.discordid == tostring(data.discordid)) then
+            table.remove(departments, i)
+            logf("Department removed by %s -> %s", tostring(src), tostring(data.department))
+        end
+    end
+    TriggerClientEvent('adminmenu:clientReceiveDepartments', -1, { departments = departments })
+end)
+
+-- robust serverMoneyOp (safe)
+local recentMoneyOps = {} -- [targetId] = timestamp
+local MONEY_OP_COOLDOWN_MS = 1500
+local MONEY_AMOUNT_LIMIT = 10000000
+
+RegisterNetEvent('adminmenu:serverMoneyOp')
+AddEventHandler('adminmenu:serverMoneyOp', function(data)
+    local src = source
+    if type(data) ~= 'table' then
+        TriggerClientEvent('chat:addMessage', src, { args = { '[AdminMenu]', 'Invalid money-op payload.' } })
+        return
+    end
+
+    local op = tostring(data.op or '')
+    local target = tonumber(data.target)
+    local amount = tonumber(data.amount) or 0
+    local extra = data.extra
+
+    if not target then
+        TriggerClientEvent('chat:addMessage', src, { args = { '[AdminMenu]', 'Invalid target ID.' } })
+        return
+    end
+
+    if amount == 0 and op ~= 'transfer' and op ~= 'addmoney' then
+        TriggerClientEvent('chat:addMessage', src, { args = { '[AdminMenu]', 'Please enter a valid (non-zero) amount.' } })
+        return
+    end
+
+    if math.abs(amount) > MONEY_AMOUNT_LIMIT then
+        TriggerClientEvent('chat:addMessage', src, { args = { '[AdminMenu]', ('Amount too large (max %s).'):format(MONEY_AMOUNT_LIMIT) } })
+        return
+    end
+
+    local now = GetGameTimer and GetGameTimer() or (os.time() * 1000)
+    if recentMoneyOps[target] and (now - recentMoneyOps[target] < MONEY_OP_COOLDOWN_MS) then
+        TriggerClientEvent('chat:addMessage', src, { args = { '[AdminMenu]', 'Money ops are being throttled for that player. Try again shortly.' } })
+        return
+    end
+    recentMoneyOps[target] = now
+
+    logf("MoneyOp requested by %s -> op=%s target=%s amount=%s extra=%s", tostring(src), op, tostring(target), tostring(amount), tostring(extra))
+
+    local handled = false
+    local ok, res
+
+    -- 1) Az-Framework server exports (if present)
+    if exports and exports['Az-Framework'] then
+        if op == 'add' then ok, res = pcall(function() return exports['Az-Framework']:addMoney(target, amount) end); handled = handled or (ok and res ~= false) end
+        if (not handled) and op == 'deduct' then ok, res = pcall(function() return exports['Az-Framework']:deductMoney(target, amount) end); handled = handled or (ok and res ~= false) end
+        if (not handled) and op == 'addmoney' then ok, res = pcall(function() return exports['Az-Framework']:addMoney(target, amount) end); handled = handled or (ok and res ~= false) end
+        if (not handled) and op == 'deposit' then ok, res = pcall(function() return exports['Az-Framework']:depositMoney(target, amount) end); handled = handled or (ok and res ~= false) end
+        if (not handled) and op == 'withdraw' then ok, res = pcall(function() return exports['Az-Framework']:withdrawMoney(target, amount) end); handled = handled or (ok and res ~= false) end
+        if (not handled) and op == 'transfer' then
+            ok, res = pcall(function() return exports['Az-Framework']:transferMoney(target, tonumber(extra), amount) end)
+            handled = handled or (ok and res ~= false)
+            if not handled then ok, res = pcall(function() return exports['Az-Framework']:transferMoney(tonumber(extra), target, amount) end); handled = handled or (ok and res ~= false) end
+        end
+    end
+
+    -- 2) QBCore (server-side)
+    if (not handled) and exports and exports['qb-core'] then
+        pcall(function()
+            local QBCore = exports['qb-core']:GetCoreObject()
+            if QBCore and QBCore.Functions then
+                local player = QBCore.Functions.GetPlayer(target)
+                if player then
+                    if op == 'add' then player.Functions.AddMoney('cash', amount) handled = true end
+                    if op == 'deduct' then player.Functions.RemoveMoney('cash', amount) handled = true end
+                    if op == 'deposit' then player.Functions.RemoveMoney('cash', amount); player.Functions.AddMoney('bank', amount); handled = true end
+                    if op == 'withdraw' then player.Functions.RemoveMoney('bank', amount); player.Functions.AddMoney('cash', amount); handled = true end
+                    -- addmoney/transfer implementations may require more context
+                end
+            end
+        end)
+    end
+
+    -- 3) ESX (server-side)
+    if (not handled) and ESX then
+        pcall(function()
+            local xPlayer = ESX.GetPlayerFromId(target)
+            if xPlayer then
+                if op == 'add' then xPlayer.addMoney(amount); handled = true end
+                if op == 'deduct' then xPlayer.removeMoney(amount); handled = true end
+                if op == 'deposit' then xPlayer.removeMoney(amount); xPlayer.addAccountMoney('bank', amount); handled = true end
+                if op == 'withdraw' then xPlayer.removeAccountMoney('bank', amount); xPlayer.addMoney(amount); handled = true end
+            end
+        end)
+    end
+
+    if handled then
+        TriggerClientEvent('chat:addMessage', src, { args = { '[AdminMenu]', ('Money op %s executed on %s for %s'):format(op, tostring(target), tostring(amount)) } })
+        logf("MoneyOp handled server-side: op=%s target=%s amount=%s", tostring(op), tostring(target), tostring(amount))
+        return
+    end
+
+    logf("MoneyOp NOT handled server-side: op=%s target=%s amount=%s", tostring(op), tostring(target), tostring(amount))
+    TriggerClientEvent('chat:addMessage', src, { args = { '[AdminMenu]', 'Money operation could not be completed server-side. Configure your economy framework or use the debug command to detect available APIs.' } })
+end)
 

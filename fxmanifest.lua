@@ -2,7 +2,7 @@ fx_version 'cerulean'
 game 'gta5'
 author 'Azure(TheStoicBear)'
 description 'Azure Framework Admin Panel'
-version '2.0.0'
+version 'v2.1.0'
 lua54 'yes'
 shared_scripts {
     "@Az-Framework/init.lua",  -- gives you global `Az`
@@ -25,12 +25,3 @@ files {
     'html/styles.css',
     'reports.json'
 }
-
-
-dependencies {
-    'Az-Framework',
-    'ox_lib',
-    'oxmysql',
-    'screenshot-basic'
-}
-

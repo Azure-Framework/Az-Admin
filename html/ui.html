@@ -277,6 +277,7 @@ function playSound(name){
   // Ensure global storages exist
   window.pendingScreenshots = window.pendingScreenshots || {}; // id -> dataUrl (screenshots received while item not present)
   window.currentReports = window.currentReports || {};         // id -> report object (latest known)
+  window._lastPlayerList = window._lastPlayerList || [];      // cached last-good players list
 
   // mini popup container (top center)
   const miniPopupContainer = document.createElement('div');
@@ -438,32 +439,141 @@ function playSound(name){
     renderPlayers(demoPlayers);
   }
 
+  // --- Enhanced renderPlayers: caches last-good list & stronger click handler + preserve selection ---
   function renderPlayers(list){
-    const ul = document.getElementById('players'); ul.innerHTML = '';
-    if (!list || !list.length) { ul.innerHTML = '<li class="text-sm muted">No players.</li>'; return; }
-    list.forEach(p=>{
+    const ul = document.getElementById('players'); 
+    // remember scroll position
+    const prevScroll = ul.scrollTop;
+
+    // normalize to array
+    let arr = Array.isArray(list) ? list.slice() : [];
+
+    // dedupe & normalize entries
+    const seen = new Set();
+    const norm = [];
+    arr.forEach(p => {
+      if (!p) return;
+      // normalize id to string for stable keys
+      const rawId = (p.id !== null && p.id !== undefined) ? (Number(p.id) || p.id) : p.id;
+      const idKey = String(rawId);
+      if (seen.has(idKey)) return;
+      seen.add(idKey);
+      norm.push({ id: rawId, name: p.name || ('Player ' + idKey), discord: p.discord || '' });
+    });
+
+    // ensure local player present (helps if server->client race caused missing entry)
+    try {
+      if (typeof GetPlayerServerId !== 'undefined' && typeof PlayerId === 'function') {
+        const mySid = GetPlayerServerId(PlayerId());
+        const myKey = String(Number(mySid) || mySid);
+        if (!seen.has(myKey)) {
+          const myName = (typeof GetPlayerName === 'function') ? GetPlayerName(PlayerId()) : ('Player ' + myKey);
+          norm.push({ id: Number(mySid) || mySid, name: myName || ('Player ' + myKey), discord: '' });
+          seen.add(myKey);
+        }
+      }
+    } catch (e) { /* ignore in non-FiveM demo */ }
+
+    if (!norm.length) {
+      ul.innerHTML = '<li class="text-sm muted">No players.</li>';
+      window._lastPlayerList = [];
+      selectedId = null;
+      return;
+    }
+
+    // sort by name for stable ordering
+    norm.sort((a,b) => String(a.name).localeCompare(String(b.name)));
+
+    // cache stable copy for auto-restore & debugging
+    window._lastPlayerList = norm.map(x => ({ id: x.id, name: x.name, discord: x.discord }));
+
+    // build DOM
+    const fragment = document.createDocumentFragment();
+    norm.forEach(p=>{
       const li = document.createElement('li');
       li.className = 'flex items-center justify-between gap-2 px-3 py-2 rounded-lg';
       li.style.border = '1px solid rgba(255,255,255,0.02)';
       li.style.background = 'rgba(255,255,255,0.01)';
-      li.dataset.id = p.id;
+      // store id as string to avoid type coercion issues in selectors
+      li.dataset.id = String(p.id);
       li.dataset.discord = p.discord || '';
       li.innerHTML = `<div class="truncate"><span class="player-name font-semibold mr-2">${escapeHtml(p.name)}</span></div>
                       <div style="display:flex;align-items:center;gap:8px;">
                         <span style="font-size:12px;padding:6px;border-radius:8px;background:rgba(255,255,255,0.02)">${escapeHtml(String(p.id))}</span>
                         <span style="font-size:12px;color:rgba(255,255,255,0.6)">${p.discord?escapeHtml(String(p.discord)):'N/A'}</span>
                       </div>`;
-      li.addEventListener('click', ()=> {
+
+      li.addEventListener('click', (ev)=> {
+        try { ev.stopPropagation(); } catch(e){}
+        // clear selection
         document.querySelectorAll('#players li').forEach(x => x.classList.remove('player-selected'));
         li.classList.add('player-selected');
-        selectedId = p.id;
-        selectedPlayerDiscord = p.discord || '';
-        showNotification(`Selected player: ${p.name} (ID: ${p.id})`,'success','Player Selected');
+        // store selection consistently as a number when appropriate
+        selectedId = (!isNaN(Number(li.dataset.id))) ? Number(li.dataset.id) : li.dataset.id;
+        selectedPlayerDiscord = li.dataset.discord || '';
+        showNotification(`Selected player: ${p.name} (ID: ${li.dataset.id})`,'success','Player Selected');
         playSound('click');
       });
-      ul.appendChild(li);
+
+      fragment.appendChild(li);
     });
+
+    // replace list atomically to avoid flicker/race
+    ul.innerHTML = '';
+    ul.appendChild(fragment);
+
+    // re-apply previous selection if still present
+    if (selectedId !== null && selectedId !== undefined) {
+      const selStr = String(selectedId);
+      const reselect = ul.querySelector(`li[data-id="${selStr}"]`);
+      if (reselect) {
+        reselect.classList.add('player-selected');
+        // ensure the selected element is visible
+        reselect.scrollIntoView({ block: 'nearest' });
+      } else {
+        // selected player not present anymore (disconnect or list changed)
+        selectedId = null;
+        selectedPlayerDiscord = null;
+      }
+    }
+
+    // restore scroll position if possible
+    try { ul.scrollTop = prevScroll; } catch(e){}
+
+    //--console.log('[UI] renderPlayers finished, shown count=', norm.length);
   }
+
+  // MutationObserver: detect unexpected removals and auto-restore from cache
+  (function(){
+    const parent = document.getElementById('players');
+    if (!parent) return;
+    let pendingRestore = null;
+    const obs = new MutationObserver((mutations) => {
+      let removedIds = [];
+      mutations.forEach(m => {
+        if (m.removedNodes && m.removedNodes.length) {
+          m.removedNodes.forEach(n => {
+            if (n.dataset && n.dataset.id) removedIds.push(n.dataset.id);
+          });
+        }
+      });
+      if (removedIds.length) {
+        //--console.warn('[UI] MutationObserver: removed player DOM nodes detected ->', removedIds);
+        // debounce a little and then restore from cache if available
+        if (pendingRestore) clearTimeout(pendingRestore);
+        pendingRestore = setTimeout(() => {
+          pendingRestore = null;
+          if (Array.isArray(window._lastPlayerList) && window._lastPlayerList.length) {
+            //--console.log('[UI] MutationObserver: restoring players from cache (count=' + window._lastPlayerList.length + ')');
+            try { renderPlayers(window._lastPlayerList); } catch(e){ console.error('[UI] restore failed', e); }
+          } else {
+            //--console.log('[UI] no cached player list to restore.');
+          }
+        }, 120);
+      }
+    });
+    obs.observe(parent, { childList: true, subtree: false });
+  })();
 
   async function fetchDepartments(){
     try {
@@ -722,7 +832,9 @@ function playSound(name){
   }
 
   // Single message listener (NUI -> page)
+  // keep this handler but also log all incoming messages for debugging
   window.addEventListener('message', (ev) => {
+    try { console.debug('[NUI MSG]', ev.data); } catch(e){}
     const d = ev.data || {};
     if (!d.action) return;
     switch (d.action) {
@@ -785,6 +897,18 @@ function playSound(name){
       case 'removeReport':
         removeReportFromUI(d.id);
         showNotification(`Report #${d.id} removed`,'warning');
+        break;
+      case 'loadPlayers':
+        {
+         //-- console.log('[NUI] loadPlayers received', d.players);
+          // Defensive: convert to array and normalize minimal shape then call renderPlayers
+          const players = Array.isArray(d.players) ? d.players.map(p => ({
+            id: (p.id !== null && p.id !== undefined) ? (Number(p.id) || p.id) : p.id,
+            name: p.name || (typeof p.id !== 'undefined' ? ('Player ' + String(p.id)) : 'Unknown'),
+            discord: p.discord || ''
+          })) : [];
+          renderPlayers(players);
+        }
         break;
 
       case 'reportScreenshot':
