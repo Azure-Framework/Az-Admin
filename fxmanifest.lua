@@ -2,7 +2,7 @@ fx_version 'cerulean'
 game 'gta5'
 author 'Azure(TheStoicBear)'
 description 'Azure Framework Admin Panel'
-version 'v2.1.0'
+version '1.0.0'
 lua54 'yes'
 shared_scripts {
     "@Az-Framework/init.lua",  -- gives you global `Az`
