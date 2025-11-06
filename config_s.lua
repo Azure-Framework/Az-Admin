@@ -1,7 +1,7 @@
 Config = {}
 
 -- Webhook URL for report notifications
-Config.ReportWebhook = "https://discord.com/api/webhooks/YOUR_DISCORD_WEBHOOK"
+Config.ReportWebhook = "https://discord.com/api/webhooks/"
 
 -- Optional: webhook display name and avatar
 Config.WebhookName = "Server Reports"
