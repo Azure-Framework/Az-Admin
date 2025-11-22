@@ -1,6 +1,4 @@
--- server.lua — Admin Menu (DB-backed departments + /report with screenshot attachment, overflow-safe)
--- Resource: Az-Admin
--- Date: 2025-11-02
+-- Date: 2025-11-22
 
 -- ============================================================================
 -- JSON helper (FiveM usually exposes json.encode/json.decode; fall back if not)
@@ -789,37 +787,51 @@ local recentMoneyOps = {}
 local MONEY_OP_COOLDOWN_MS = 1500
 local MONEY_AMOUNT_LIMIT = 10000000
 
+-- ============================================================================
+-- Money Ops (Az-Framework first, then QB/ESX fallback)
+-- ============================================================================
+local recentMoneyOps = {}
+local MONEY_OP_COOLDOWN_MS = 1500
+local MONEY_AMOUNT_LIMIT = 10000000
+
 RegisterNetEvent('adminmenu:serverMoneyOp')
 AddEventHandler('adminmenu:serverMoneyOp', function(data)
     local src = source
+
     if type(data) ~= 'table' then
         TriggerClientEvent('chat:addMessage', src, { args = { '[AdminMenu]', 'Invalid money-op payload.' } })
         return
     end
 
-    local op = tostring(data.op or '')
+    local op     = tostring(data.op or ''):lower()
     local target = tonumber(data.target)
     local amount = tonumber(data.amount) or 0
-    local extra = data.extra
+    local extra  = data.extra -- used as second player id for transfers
 
     if not target then
         TriggerClientEvent('chat:addMessage', src, { args = { '[AdminMenu]', 'Invalid target ID.' } })
         return
     end
 
-    if amount == 0 and op ~= 'transfer' and op ~= 'addmoney' then
+    -- amount sanity checks (except some transfer cases)
+    if amount == 0 and op ~= 'transfer' and op ~= 'add' and op ~= 'addmoney' and op ~= 'addfunds' then
         TriggerClientEvent('chat:addMessage', src, { args = { '[AdminMenu]', 'Please enter a valid (non-zero) amount.' } })
         return
     end
 
     if math.abs(amount) > MONEY_AMOUNT_LIMIT then
-        TriggerClientEvent('chat:addMessage', src, { args = { '[AdminMenu]', ('Amount too large (max %s).'):format(MONEY_AMOUNT_LIMIT) } })
+        TriggerClientEvent('chat:addMessage', src, {
+            args = { '[AdminMenu]', ('Amount too large (max %s).'):format(MONEY_AMOUNT_LIMIT) }
+        })
         return
     end
 
+    -- basic per-target throttle
     local now = GetGameTimer and GetGameTimer() or (os.time() * 1000)
     if recentMoneyOps[target] and (now - recentMoneyOps[target] < MONEY_OP_COOLDOWN_MS) then
-        TriggerClientEvent('chat:addMessage', src, { args = { '[AdminMenu]', 'Money ops are throttled for that player. Try again shortly.' } })
+        TriggerClientEvent('chat:addMessage', src, {
+            args = { '[AdminMenu]', 'Money ops are throttled for that player. Try again shortly.' }
+        })
         return
     end
     recentMoneyOps[target] = now
@@ -827,57 +839,134 @@ AddEventHandler('adminmenu:serverMoneyOp', function(data)
     local handled = false
     local ok, res
 
-    if exports and exports['Az-Framework'] then
-        if op == 'add' then ok, res = pcall(function() return exports['Az-Framework']:addMoney(target, amount) end); handled = handled or (ok and res ~= false) end
-        if (not handled) and op == 'deduct' then ok, res = pcall(function() return exports['Az-Framework']:deductMoney(target, amount) end); handled = handled or (ok and res ~= false) end
-        if (not handled) and op == 'addmoney' then ok, res = pcall(function() return exports['Az-Framework']:addMoney(target, amount) end); handled = handled or (ok and res ~= false) end
-        if (not handled) and op == 'deposit' then ok, res = pcall(function() return exports['Az-Framework']:depositMoney(target, amount) end); handled = handled or (ok and res ~= false) end
-        if (not handled) and op == 'withdraw' then ok, res = pcall(function() return exports['Az-Framework']:withdrawMoney(target, amount) end); handled = handled or (ok and res ~= false) end
-        if (not handled) and op == 'transfer' then
-            ok, res = pcall(function() return exports['Az-Framework']:transferMoney(target, tonumber(extra), amount) end)
-            handled = handled or (ok and res ~= false)
-            if not handled then ok, res = pcall(function() return exports['Az-Framework']:transferMoney(tonumber(extra), target, amount) end); handled = handled or (ok and res ~= false) end
+    ------------------------------------------------------------------------
+    -- Az-Framework primary economy handler
+    ------------------------------------------------------------------------
+    local fw = exports and exports['Az-Framework']
+
+    if fw then
+        -- Normalize ops / aliases
+        if op == 'add' or op == 'addmoney' or op == 'addfunds' or op == 'addcash' or op == 'give' then
+            -- Wallet-only add
+            ok, res = pcall(function()
+                return fw:addMoney(target, amount)
+            end)
+            handled = ok and res ~= false
+
+        elseif op == 'deduct' or op == 'remove' or op == 'take' then
+            ok, res = pcall(function()
+                return fw:deductMoney(target, amount)
+            end)
+            handled = ok and res ~= false
+
+        elseif op == 'deposit' then
+            -- Move cash -> bank
+            ok, res = pcall(function()
+                return fw:depositMoney(target, amount)
+            end)
+            handled = ok and res ~= false
+
+        elseif op == 'withdraw' then
+            -- Move bank -> cash
+            ok, res = pcall(function()
+                return fw:withdrawMoney(target, amount)
+            end)
+            handled = ok and res ~= false
+
+        elseif op == 'transfer' then
+            local otherId = tonumber(extra)
+            if not otherId then
+                TriggerClientEvent('chat:addMessage', src, {
+                    args = { '[AdminMenu]', 'Transfer requires a valid second player ID.' }
+                })
+                return
+            end
+
+            -- Here: target = "from", otherId = "to"
+            ok, res = pcall(function()
+                return fw:transferMoney(target, otherId, amount)
+            end)
+            handled = ok and res ~= false
         end
     end
 
-    -- QBCore fallback
+    ------------------------------------------------------------------------
+    -- QBCore fallback (if Az-Framework not present or op not handled)
+    ------------------------------------------------------------------------
     if (not handled) and exports and exports['qb-core'] then
         pcall(function()
             local QBCore = exports['qb-core']:GetCoreObject()
-            if QBCore and QBCore.Functions then
-                local player = QBCore.Functions.GetPlayer(target)
-                if player then
-                    if op == 'add' then player.Functions.AddMoney('cash', amount) handled = true end
-                    if op == 'deduct' then player.Functions.RemoveMoney('cash', amount) handled = true end
-                    if op == 'deposit' then player.Functions.RemoveMoney('cash', amount); player.Functions.AddMoney('bank', amount); handled = true end
-                    if op == 'withdraw' then player.Functions.RemoveMoney('bank', amount); player.Functions.AddMoney('cash', amount); handled = true end
-                end
+            if not QBCore or not QBCore.Functions then return end
+
+            local player = QBCore.Functions.GetPlayer(target)
+            if not player then return end
+
+            if op == 'add' or op == 'addmoney' or op == 'addfunds' or op == 'addcash' or op == 'give' then
+                player.Functions.AddMoney('cash', amount)
+                handled = true
+
+            elseif op == 'deduct' or op == 'remove' or op == 'take' then
+                player.Functions.RemoveMoney('cash', amount)
+                handled = true
+
+            elseif op == 'deposit' then
+                player.Functions.RemoveMoney('cash', amount)
+                player.Functions.AddMoney('bank', amount)
+                handled = true
+
+            elseif op == 'withdraw' then
+                player.Functions.RemoveMoney('bank', amount)
+                player.Functions.AddMoney('cash', amount)
+                handled = true
             end
         end)
     end
 
+    ------------------------------------------------------------------------
     -- ESX fallback
+    ------------------------------------------------------------------------
     if (not handled) and ESX then
         pcall(function()
             local xPlayer = ESX.GetPlayerFromId(target)
-            if xPlayer then
-                if op == 'add' then xPlayer.addMoney(amount); handled = true end
-                if op == 'deduct' then xPlayer.removeMoney(amount); handled = true end
-                if op == 'deposit' then xPlayer.removeMoney(amount); xPlayer.addAccountMoney('bank', amount); handled = true end
-                if op == 'withdraw' then xPlayer.removeAccountMoney('bank', amount); xPlayer.addMoney(amount); handled = true end
+            if not xPlayer then return end
+
+            if op == 'add' or op == 'addmoney' or op == 'addfunds' or op == 'addcash' or op == 'give' then
+                xPlayer.addMoney(amount)
+                handled = true
+
+            elseif op == 'deduct' or op == 'remove' or op == 'take' then
+                xPlayer.removeMoney(amount)
+                handled = true
+
+            elseif op == 'deposit' then
+                xPlayer.removeMoney(amount)
+                xPlayer.addAccountMoney('bank', amount)
+                handled = true
+
+            elseif op == 'withdraw' then
+                xPlayer.removeAccountMoney('bank', amount)
+                xPlayer.addMoney(amount)
+                handled = true
             end
         end)
     end
 
+    ------------------------------------------------------------------------
+    -- Final logging / feedback
+    ------------------------------------------------------------------------
     if handled then
-        TriggerClientEvent('chat:addMessage', src, { args = { '[AdminMenu]', ('Money op %s executed on %s for %s'):format(op, tostring(target), tostring(amount)) } })
-        logf("MoneyOp handled server-side: op=%s target=%s amount=%s", tostring(op), tostring(target), tostring(amount))
-        return
+        TriggerClientEvent('chat:addMessage', src, {
+            args = { '[AdminMenu]', ('Money op %s executed on %s for %s'):format(op, tostring(target), tostring(amount)) }
+        })
+        logf("MoneyOp handled: op=%s target=%s amount=%s", tostring(op), tostring(target), tostring(amount))
+    else
+        logf("MoneyOp NOT handled: op=%s target=%s amount=%s", tostring(op), tostring(target), tostring(amount))
+        TriggerClientEvent('chat:addMessage', src, {
+            args = { '[AdminMenu]', 'Money operation could not be completed server-side. Configure your economy framework.' }
+        })
     end
-
-    logf("MoneyOp NOT handled server-side: op=%s target=%s amount=%s", tostring(op), tostring(target), tostring(amount))
-    TriggerClientEvent('chat:addMessage', src, { args = { '[AdminMenu]', 'Money operation could not be completed server-side. Configure your economy framework.' } })
 end)
+
 
 -- ============================================================================
 -- Lifecycle
