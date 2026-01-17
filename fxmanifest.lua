@@ -1,28 +1,36 @@
 fx_version 'cerulean'
 game 'gta5'
+
+name 'Az-Admin'
 author 'Azure(TheStoicBear)'
-description 'Azure Framework Admin Panel'
-version '2.5.1'
+description 'Admin Menu: Reports + Players + Money Ops + DB Departments (NUI)'
+version '3.0.0'
 lua54 'yes'
+
+ui_page 'html/index.html'
+
+files {
+  'html/index.html',
+  'html/style.css',
+  'html/app.js',
+  'data/reports.json',
+  'sql/schema.sql'
+}
+
 shared_scripts {
-    "@Az-Framework/init.lua",  -- gives you global `Az`
-    '@ox_lib/init.lua',
+  '@ox_lib/init.lua',
+  'config.lua'
 }
 
 client_scripts {
-    'client.lua'
+  'client.lua'
 }
+
 server_scripts {
-    '@oxmysql/lib/MySQL.lua',
-    'config_s.lua',
-    'server.lua'
+  'server.lua'
 }
 
-ui_page 'html/ui.html'
-
-files {
-    'html/ui.html',
-    'html/styles.css',
-    'reports.json'
+dependencies {
+  'oxmysql',
+  'ox_lib'
 }
-
