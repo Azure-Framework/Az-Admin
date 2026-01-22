@@ -4,7 +4,7 @@ game 'gta5'
 name 'Az-Admin'
 author 'Azure'
 description 'Admin Menu: Reports + Players + Money Ops + DB Departments (NUI)'
-version '1.0.0'
+version '3.5.0'
 lua54 'yes'
 
 ui_page 'html/index.html'
