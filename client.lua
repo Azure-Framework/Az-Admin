@@ -31,8 +31,8 @@ local function startControlLock()
   controlThread = CreateThread(function()
     while uiOpen do
       DisableAllControlActions(0)
-      EnableControlAction(0, 322, true) -- ESC
-      EnableControlAction(0, 200, true) -- Pause
+      EnableControlAction(0, 322, true) 
+      EnableControlAction(0, 200, true) 
       Wait(0)
     end
     controlThread = nil
@@ -53,18 +53,18 @@ local function closeUI()
   setFocus(false)
 end
 
--- =========================================
--- Commands / keybind
--- =========================================
+
+
+
 RegisterCommand("adminmenu", function()
   TriggerServerEvent("adminmenu:requestOpenAdmin")
 end, false)
 
 RegisterKeyMapping("adminmenu", "Open Admin Menu", "keyboard", "PAGEUP")
 
--- /report [serverId?] [reason...]
--- If no args -> opens "My Reports" UI.
--- If first arg is a number -> report that serverId. Otherwise target=0 and args become reason.
+
+
+
 RegisterCommand("report", function(_, args)
   if not args or #args == 0 then
     TriggerServerEvent("adminmenu:requestOpenUser")
@@ -87,18 +87,18 @@ RegisterCommand("report", function(_, args)
 
   TriggerServerEvent("adminmenu:submitReport", target, reason)
 
-  -- Auto-open "My Reports" so the reporter can immediately see their ticket.
+  
   TriggerServerEvent("adminmenu:requestOpenUser")
 end, false)
 
--- /reports -> open "My Reports"
+
 RegisterCommand("reports", function()
   TriggerServerEvent("adminmenu:requestOpenUser")
 end, false)
 
--- =========================================
--- Open allow/deny from server
--- =========================================
+
+
+
 RegisterNetEvent("adminmenu:allowOpen", function(payload)
   myServerId = (payload and payload.myServerId) or GetPlayerServerId(PlayerId())
   isAdmin = (payload and payload.isAdmin) == true
@@ -113,9 +113,9 @@ RegisterNetEvent("adminmenu:denyOpen", function(msg)
   TriggerEvent('chat:addMessage', { args = { "^1ADMIN", msg or "No permission." } })
 end)
 
--- =========================================
--- NUI callbacks
--- =========================================
+
+
+
 RegisterNUICallback("closeMenu", function(_, cb)
   closeUI()
   cb({ ok = true })
@@ -132,7 +132,7 @@ RegisterNUICallback("notifyPlayer", function(data, cb)
 end)
 
 RegisterNUICallback("openMenu", function(_, cb)
-  -- When UI opens, request server push updates
+  
   TriggerServerEvent("adminmenu:clientOpened")
   cb({ ok = true })
 end)
@@ -144,7 +144,7 @@ end)
 
 
 
--- Create a new report from the UI (player)
+
 RegisterNUICallback("createReport", function(data, cb)
   local ok, err, report = lib.callback.await("adminmenu:createReport", false, data or {})
   cb({ ok = ok and true or false, error = err, report = report })
@@ -215,9 +215,9 @@ RegisterNUICallback("kick", function(data, cb)
   cb({ ok = ok and true or false, error = err })
 end)
 
--- =========================
--- CHAT: SERVER EVENT
--- =========================
+
+
+
 RegisterNetEvent("Az-Admin:sendChat", function(reportId, message)
   local src = source
   reportId = tonumber(reportId)
@@ -241,15 +241,15 @@ RegisterNetEvent("Az-Admin:sendChat", function(reportId, message)
 
   table.insert(report.chat, entry)
 
-  -- Persist
+  
   saveReports()
 
-  -- Live update everyone with UI open (simple + works)
-  -- If you want to restrict, you can send only to reporter/target/admins.
+  
+  
   TriggerClientEvent("Az-Admin:ui:upsertReport", -1, report)
 end)
 
--- Optional: send full list on request (if your UI calls getReports)
+
 RegisterNetEvent("Az-Admin:requestReports", function()
   local src = source
   local out = {}
@@ -283,9 +283,9 @@ RegisterNUICallback("removeDepartment", function(data, cb)
   cb({ ok = ok and true or false, error = err })
 end)
 
--- =========================================
--- Server push events
--- =========================================
+
+
+
 RegisterNetEvent("adminmenu:nui:loadReports", function(reports)
   if not uiOpen then return end
   SendNUIMessage({ action = "loadReports", reports = reports or {} })
@@ -301,10 +301,10 @@ RegisterNetEvent("adminmenu:nui:updateReport", function(id, resolved)
   SendNUIMessage({ action = "updateReport", id = id, resolved = resolved })
 end)
 
--- Upsert a single report (used for claim/chat/notes updates)
+
 RegisterNetEvent("adminmenu:nui:upsertReport", function(report)
   if not uiOpen then return end
-  -- Non-admin clients ignore reports not belonging to them
+  
   if (not isAdmin) and report and tonumber(report.reporterId) ~= tonumber(myServerId) then
     return
   end
@@ -331,15 +331,15 @@ RegisterNetEvent("adminmenu:nui:loadDepartments", function(departments)
   SendNUIMessage({ action = "loadDepartments", departments = departments or {} })
 end)
 
--- Optional: screenshot reception (data URL or CDN url)
+
 RegisterNetEvent("adminmenu:nui:reportScreenshot", function(id, image)
   if not uiOpen then return end
   SendNUIMessage({ action = "reportScreenshot", id = id, image = image })
 end)
 
--- =========================================
--- Screenshot capture for /report (optional)
--- =========================================
+
+
+
 RegisterNetEvent("adminmenu:clientRequestScreenshot", function(reportId)
   local rid = tonumber(reportId or 0)
   if rid <= 0 then return end
@@ -351,7 +351,7 @@ RegisterNetEvent("adminmenu:clientRequestScreenshot", function(reportId)
 
   exports["screenshot-basic"]:requestScreenshot(function(data)
     if not data or data == "" then return end
-    -- data is a data URL (data:image/jpeg;base64,...)
+    
     local max = tonumber(Config.ChunkMaxSize) or 8000
     local parts = {}
     for i = 1, #data, max do
@@ -366,9 +366,9 @@ RegisterNetEvent("adminmenu:clientRequestScreenshot", function(reportId)
   end)
 end)
 
--- =========================================
--- Safety: close if resource stops
--- =========================================
+
+
+
 AddEventHandler("onResourceStop", function(res)
   if res ~= RESOURCE_NAME then return end
   if uiOpen then
@@ -377,9 +377,9 @@ AddEventHandler("onResourceStop", function(res)
 end)
 
 
--- =========================================
--- Teleport / Freeze helpers (from server callbacks)
--- =========================================
+
+
+
 RegisterNetEvent("adminmenu:clientTeleportTo", function(x, y, z)
   local ped = PlayerPedId()
   SetEntityCoordsNoOffset(ped, x + 0.0, y + 0.0, z + 0.0, false, false, false)
@@ -391,7 +391,7 @@ RegisterNetEvent("adminmenu:clientFreezeToggle", function()
   FreezeEntityPosition(PlayerPedId(), frozen)
 end)
 
--- Server asks our client for current coordinates (used for teleport/bring)
+
 RegisterNetEvent("adminmenu:clientRequestCoords", function(reqId)
   if not reqId then return end
   local ped = PlayerPedId()

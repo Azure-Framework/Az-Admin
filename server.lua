@@ -1,13 +1,3 @@
--- Az-Admin/server.lua
--- Clean + fixed:
--- ✅ Proper ox_lib callbacks (sendChat signature matches client await)
--- ✅ Discord PFP support (server fetch + cache) + default avatar fallback
--- ✅ ALWAYS enrich reports before sending to UI (open/new/upsert/getReports)
--- ✅ Az-Framework admin check (tries BOTH colon + dot signatures) + ACE fallback
--- ✅ Money ops treat false/nil as failure (no “sent” when nothing changed)
--- ✅ Reports persistence + screenshot chunk receiver
--- ✅ Departments via oxmysql (optional)
-
 local RESOURCE_NAME = GetCurrentResourceName()
 
 Config = Config or {}
@@ -25,17 +15,10 @@ local function dprint(...)
   print(("^3[%s]^7 %s"):format(RESOURCE_NAME, table.concat(args, " ")))
 end
 
--- =========================================================
--- Convars (set these in server.cfg)
---   set DISCORD_BOT_TOKEN "..."
--- =========================================================
 local DISCORD_BOT_TOKEN = GetConvar("DISCORD_BOT_TOKEN", "") or ""
 local DISCORD_API_BASE  = "https://discord.com/api/v10"
-local AVATAR_TTL_SEC    = 60 * 30 -- 30 min cache
+local AVATAR_TTL_SEC    = 60 * 30 
 
--- =========================================================
--- Helpers
--- =========================================================
 local function trim(s)
   s = tostring(s or "")
   return s:gsub("^%s+", ""):gsub("%s+$", "")
@@ -80,26 +63,23 @@ local function getFW()
   return nil
 end
 
--- =========================================================
--- Admin check (Az-Framework FIRST, supports both colon/dot)
--- =========================================================
 local function isAdmin(src)
   src = resolveSourceId(src)
   if not src then return false end
-  if src == 0 then return true end -- console
+  if src == 0 then return true end 
 
   local fw = getFW()
   if fw then
     local fn = fw.isAdmin
     if type(fn) == "function" then
-      -- Try colon signature: fw:isAdmin(src)
+      
       local ok1, res1 = pcall(function() return fw:isAdmin(src) end)
       if ok1 and type(res1) == "boolean" then
         dprint(("[isAdmin] AzFW colon -> %s (src=%s)"):format(tostring(res1), tostring(src)))
         return res1
       end
 
-      -- Try dot signature: fw.isAdmin(src)
+      
       local ok2, res2 = pcall(function() return fw.isAdmin(src) end)
       if ok2 and type(res2) == "boolean" then
         dprint(("[isAdmin] AzFW dot -> %s (src=%s)"):format(tostring(res2), tostring(src)))
@@ -112,7 +92,7 @@ local function isAdmin(src)
     end
   end
 
-  -- ACE fallback
+  
   local perm = Config.AcePermission or "adminmenu.use"
   local ace = IsPlayerAceAllowed(src, perm)
   if ace then
@@ -124,9 +104,6 @@ local function isAdmin(src)
   return false
 end
 
--- =========================================================
--- Discord ID (AzFW export first, fallback identifiers)
--- =========================================================
 local function getDiscordID(src)
   src = resolveSourceId(src)
   if not src then return nil end
@@ -134,12 +111,12 @@ local function getDiscordID(src)
   local fw = getFW()
   if fw and type(fw.getDiscordID) == "function" then
     local ok, id = safeCall(function()
-      -- try dot first (common)
+      
       return fw.getDiscordID(src)
     end)
     if ok and id and tostring(id) ~= "" then return tostring(id) end
 
-    -- try colon
+    
     ok, id = safeCall(function()
       return fw:getDiscordID(src)
     end)
@@ -155,10 +132,7 @@ local function getDiscordID(src)
   return nil
 end
 
--- =========================================================
--- Discord Avatar Resolver (cached)
--- =========================================================
-local AvatarCache = {} -- [discordId] = { url = "...", exp = os.time()+ttl }
+local AvatarCache = {} 
 
 local function bigModDecimalStr(numStr, mod)
   local r = 0
@@ -174,10 +148,10 @@ end
 local function defaultDiscordAvatarIndex(discordId)
   local s = tostring(discordId or ""):match("%d+")
   if not s then return 0 end
-  local SHIFT = 4194304       -- 2^22
-  local MOD   = 6 * SHIFT     -- 25165824
+  local SHIFT = 4194304       
+  local MOD   = 6 * SHIFT     
   local m = bigModDecimalStr(s, MOD)
-  return math.floor(m / SHIFT) -- 0..5
+  return math.floor(m / SHIFT) 
 end
 
 local function buildDiscordAvatarUrl(discordId, avatarHash)
@@ -215,7 +189,7 @@ local function getDiscordAvatarUrl(discordId)
     return cached.url
   end
 
-  -- No token -> default avatar (still valid)
+  
   if DISCORD_BOT_TOKEN == "" then
     local url = buildDiscordAvatarUrl(id, "")
     AvatarCache[id] = { url = url, exp = now + AVATAR_TTL_SEC }
@@ -244,7 +218,7 @@ local function getDiscordAvatarUrl(discordId)
   return url
 end
 
--- Enrich report objects with avatar URLs that app.js expects
+
 local function enrichReportsWithAvatarUrls(list)
   if type(list) ~= "table" then return list end
 
@@ -307,9 +281,6 @@ local function pushUpsertToAll(report)
   return report
 end
 
--- =========================================================
--- Reports persistence
--- =========================================================
 local reports = {}
 
 local function normalizeReports(decoded)
@@ -401,9 +372,6 @@ local function broadcastAdmins(event, ...)
   end
 end
 
--- =========================================================
--- Reliable teleport support (request coords from client)
--- =========================================================
 local pendingCoords = {}
 RegisterNetEvent("adminmenu:clientNotify", function(notif)
   SendNUIMessage({ action = "notify", notif = notif or {} })
@@ -448,9 +416,6 @@ local function requestClientCoords(target, timeoutMs)
   return res
 end
 
--- =========================================================
--- oxmysql wrappers (Departments)
--- =========================================================
 local function hasOx()
   return GetResourceState("oxmysql") == "started" and exports.oxmysql ~= nil
 end
@@ -499,9 +464,6 @@ local function removeDepartment(discordid, department)
   )
 end
 
--- =========================================================
--- Money Ops (Az-Framework preferred; false/nil = FAIL)
--- =========================================================
 local function callMoney(fnName, ...)
   local fw = getFW()
   if not fw then return false, "Az-Framework not started" end
@@ -511,10 +473,10 @@ local function callMoney(fnName, ...)
     return false, ("Az-Framework export missing: %s"):format(fnName)
   end
 
-  -- try colon style (self first)
+  
   local ok, res = pcall(fn, fw, ...)
   if not ok then
-    -- fallback dot style
+    
     ok, res = pcall(fn, ...)
     if not ok then return false, tostring(res) end
   end
@@ -587,9 +549,6 @@ local function doMoneyOp(adminSrc, op, target, amount, extra)
   return true
 end
 
--- =========================================================
--- ox_lib callbacks
--- =========================================================
 if not lib or not lib.callback or not lib.callback.register then
   print(("^1[%s]^7 ox_lib callback system not found. Start ox_lib."):format(RESOURCE_NAME))
 else
@@ -604,7 +563,7 @@ else
     return false, "Missing title/message"
   end
 
-  -- safety clamp
+  
   if #title > 120 then title = title:sub(1,120) end
   if #msg > 900 then msg = msg:sub(1,900) end
   notif.title = title
@@ -755,8 +714,8 @@ end)
     return true, nil, r
   end)
 
-  -- ✅ FIXED sendChat callback (no duplicate code / clean returns)
-  -- client: lib.callback.await("adminmenu:sendChat", false, id, msg)
+  
+  
   lib.callback.register("adminmenu:sendChat", function(src, reportId, message)
     reportId = tonumber(reportId or 0) or 0
     message  = trim(message)
@@ -791,7 +750,7 @@ end)
 
     saveReports()
 
-    -- Enrich + push updated report (includes avatarUrl for latest chat entry)
+    
     report = enrichOneReport(report)
 
     broadcastAdmins("adminmenu:nui:upsertReport", report)
@@ -957,9 +916,6 @@ end)
   end)
 end
 
--- =========================================================
--- Events (keep same event names)
--- =========================================================
 RegisterNetEvent("adminmenu:requestOpenAdmin", function()
   local src = source
   if not isAdmin(src) then
@@ -979,7 +935,7 @@ RegisterNetEvent("adminmenu:requestOpenMy", function()
   TriggerClientEvent("adminmenu:allowOpen", src, { myServerId = src, isAdmin = isAdmin(src) })
 end)
 
--- ✅ IMPORTANT: enrich here so avatars work on FIRST open
+
 RegisterNetEvent("adminmenu:clientOpened", function()
   local src = source
 
@@ -1034,9 +990,6 @@ RegisterNetEvent("adminmenu:submitReport", function(targetId, reason)
   TriggerClientEvent("adminmenu:clientRequestScreenshot", src, rid)
 end)
 
--- =========================================================
--- Screenshot chunk receiver (data URL)
--- =========================================================
 local screenshotBuffers = {}
 
 RegisterNetEvent("adminmenu:serverReceiveScreenshotChunk", function(reportId, idx, total, chunk)
@@ -1065,10 +1018,10 @@ RegisterNetEvent("adminmenu:serverReceiveScreenshotChunk", function(reportId, id
       r.screenshotDataUrl = dataUrl
       saveReports()
 
-      -- keep existing screenshot event
+      
       TriggerClientEvent("adminmenu:nui:reportScreenshot", -1, reportId, dataUrl)
 
-      -- upsert with avatars preserved
+      
       pushUpsertToAll(r)
     end
 
@@ -1076,9 +1029,6 @@ RegisterNetEvent("adminmenu:serverReceiveScreenshotChunk", function(reportId, id
   end
 end)
 
--- =========================================================
--- Init
--- =========================================================
 CreateThread(function()
   loadReports()
   dprint(("Loaded %d reports"):format(#reports))

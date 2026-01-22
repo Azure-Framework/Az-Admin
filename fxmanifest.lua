@@ -2,9 +2,9 @@ fx_version 'cerulean'
 game 'gta5'
 
 name 'Az-Admin'
-author 'Azure(TheStoicBear)'
+author 'Azure'
 description 'Admin Menu: Reports + Players + Money Ops + DB Departments (NUI)'
-version '3.0.0'
+version '1.0.0'
 lua54 'yes'
 
 ui_page 'html/index.html'
